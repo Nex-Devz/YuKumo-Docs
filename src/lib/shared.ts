@@ -3,8 +3,15 @@ export const docsRoute = "/docs";
 export const docsImageRoute = "/og/docs";
 export const docsContentRoute = "/llms.mdx/docs";
 
-// fill this with your actual GitHub info, for example:
+// the main YuKumo wrapper repository
 export const gitConfig = {
+  user: "Nex-Devz",
+  repo: "YuKumo",
+  branch: "main",
+};
+
+// the repository that hosts this documentation website
+export const docsConfig = {
   user: "Nex-Devz",
   repo: "YuKumo-Docs",
   branch: "main",

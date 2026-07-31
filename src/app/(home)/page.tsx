@@ -119,7 +119,7 @@ export default function HomePage() {
             API Reference
           </Link>
           <Link
-            href="https://github.com/Nex-Devz/YuKumo-Docs"
+            href="https://github.com/Nex-Devz/YuKumo"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-2 rounded-md border border-fd-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-fd-secondary"
