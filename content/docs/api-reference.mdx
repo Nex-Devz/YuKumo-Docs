@@ -117,11 +117,26 @@ class YuKumo {
 |----------|----------|
 | `LeastUsedSelector` | **(Default)** Fewest players |
 | `LeastPenaltySelector` | Lowest penalty (players + CPU + frames) |
+| `CpuUsageSelector` | Lowest Lavalink CPU load |
+| `MemoryUsageSelector` | Lowest memory usage |
+| `LowestPingSelector` | Lowest WebSocket round-trip ping |
+| `RegionSelector` | Region-aware with fallback selector |
 | `RoundRobinSelector` | Round-robin order |
 | `RandomSelector` | Random connected node |
+| `CustomSelector` | Custom function `(nodes, guildId) => Node \| null` |
 
 ```ts
+import { RoundRobinSelector, RegionSelector, CustomSelector } from "yukumo";
+
 client.nodes.setSelector(new RoundRobinSelector());
+
+// Region-aware with fallback
+client.nodes.setSelector(new RegionSelector("eu", new LeastPenaltySelector()));
+
+// Custom function
+client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
+  return nodes.find(n => n.state === "connected") ?? null;
+}));
 ```
 
 ## Player
@@ -146,7 +161,7 @@ client.nodes.setSelector(new RoundRobinSelector());
 |--------|---------|-------------|
 | `play(track?)` | `Promise<void>` | Begin playback |
 | `playTrack(track)` | `Promise<void>` | Play specific track |
-| `playPrevious()` | `Promise<TTrack \| null>` | Play previous track |
+| `playPrevious()` | `Promise<TTrack \| null>` | Play previous track from history |
 | `pause()` | `Promise<void>` | Pause playback |
 | `resume()` | `Promise<void>` | Resume playback |
 | `stop()` | `Promise<void>` | Stop playback |
@@ -155,9 +170,9 @@ client.nodes.setSelector(new RoundRobinSelector());
 | `destroy()` | `Promise<void>` | Destroy player |
 | `setVoiceChannel(id)` | `Promise<void>` | Move bot to channel |
 | `setTextChannel(id)` | `void` | Update text channel |
-| `search(query, source?)` | `Promise<SearchResult>` | Shortcut for YuKumo.search |
+| `search(query, source?)` | `Promise<SearchResult>` | Shortcut for yukumo.search |
 | `setLoop(mode)` | `this` | Shortcut for queue.setRepeatMode |
-| `getLyrics(track?)` | `Promise<any>` | Shortcut for getLyrics |
+| `getLyrics(track?)` | `Promise<any>` | Fetch lyrics (requires Lyrics plugin) |
 
 ### PlayerManager
 
@@ -290,7 +305,7 @@ interface SearchResult {
 | `LowPassFilter` | `setSmoothing()` |
 
 ```ts
-import { FilterChain, EqualizerFilter, TimescaleFilter } from "YuKumo";
+import { FilterChain, EqualizerFilter, TimescaleFilter } from "yukumo";
 
 const chain = new FilterChain();
 chain
@@ -298,6 +313,35 @@ chain
   .add(new TimescaleFilter().setSpeed(1.25));
 
 player.filters.add(new EqualizerFilter().setBand(0, 0.5));
+```
+
+### Filter Presets
+
+One-line preset methods on `FilterChain` (also available on `player.filters`):
+
+| Preset | Description |
+|--------|-------------|
+| `setBassBoost(level)` | Bass boost EQ preset (`"low"`, `"medium"`, `"high"`, `"extreme"`) |
+| `setNightcore(enabled?)` | Nightcore timescale (speed 1.25, pitch 1.25) |
+| `setVaporwave(enabled?)` | Vaporwave timescale (speed 0.85, pitch 0.8) |
+| `set8D(enabled?)` | 8D audio rotation (0.2 Hz panning) |
+| `setKaraoke(enabled?)` | Karaoke vocal removal filter |
+| `setPop(enabled?)` | Pop EQ preset |
+| `setSoft(enabled?)` | Soft EQ preset |
+| `setTrebleBass(enabled?)` | Treble & Bass EQ preset |
+| `setRock(enabled?)` | Rock EQ preset |
+| `setClassical(enabled?)` | Classical EQ preset |
+| `setElectronic(enabled?)` | Electronic EQ preset |
+
+```ts
+// Apply bass boost
+player.filters.setBassBoost("high");
+
+// Enable nightcore
+player.filters.setNightcore();
+
+// Disable a preset
+player.filters.setNightcore(false);
 ```
 
 ## Voice
@@ -362,12 +406,54 @@ interface StorageAdapter {
 | `RedisStorage` | Redis persistence (requires `redis` package) |
 
 ```ts
-import { RedisStorage } from "YuKumo";
+import { RedisStorage } from "yukumo";
 
-const YuKumo = new YuKumo({
+const yukumo = new YuKumo({
   nodes: [...],
   storageAdapter: new RedisStorage({ url: "redis://localhost:6379" }),
 });
+```
+
+## Framework Adapters
+
+YuKumo provides first-class gateway adapters that automatically forward voice state and server updates from your Discord library.
+
+| Adapter | Library |
+|---------|----------|
+| `DiscordJSAdapter` | discord.js v14 |
+| `ErisAdapter` | Eris |
+| `SeyfertAdapter` | Seyfert |
+| `OceanicAdapter` | Oceanic.js |
+| `DiscordenoAdapter` | Discordeno |
+| `RawGatewayAdapter` | Custom / raw gateway |
+| `DaveyAdapter` | Davey voice connections |
+
+### Usage
+
+```ts
+import { YuKumo, DiscordJSAdapter } from "yukumo";
+import { Client } from "discord.js";
+
+const discordClient = new Client({ intents: [...] });
+const yukumo = new YuKumo({ nodes: [...] });
+
+// Adapter handles voice state forwarding automatically
+const adapter = new DiscordJSAdapter(discordClient, yukumo);
+
+// Connect to voice via the adapter
+adapter.sendVoiceStateUpdate(guildId, voiceChannelId);
+```
+
+For custom integrations, use `RawGatewayAdapter`:
+
+```ts
+import { RawGatewayAdapter } from "yukumo";
+
+const adapter = new RawGatewayAdapter(yukumo);
+
+// Forward raw gateway payloads manually
+adapter.handleRawVoiceStateUpdate(rawPayload);
+adapter.handleRawVoiceServerUpdate(rawPayload);
 ```
 
 ## Plugin System
@@ -428,10 +514,10 @@ interface Plugin {
 | `LoadError` | Track loading errors |
 
 ```ts
-import { RestError, PlayerNotConnectedError } from "YuKumo";
+import { RestError, PlayerNotConnectedError } from "yukumo";
 
 try {
-  await YuKumo.play("guildId", track);
+  await yukumo.play("guildId", track);
 } catch (error) {
   if (error instanceof RestError) {
     console.error(`HTTP ${error.statusCode}: ${error.message}`);

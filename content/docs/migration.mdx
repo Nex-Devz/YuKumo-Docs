@@ -87,7 +87,7 @@ client.handleVoiceServerUpdate(guildId, data);
 **v4 (YuKumo):**
 
 ```ts
-import { EqualizerFilter, TimescaleFilter, FilterChain } from "YuKumo";
+import { EqualizerFilter, TimescaleFilter, FilterChain } from "yukumo";
 
 const chain = new FilterChain();
 chain.add(new EqualizerFilter().setBand(0, 0.5));
@@ -136,7 +136,7 @@ Event names use Lavalink v4 camelCase convention.
 
 ## Migration Checklist
 
-- [ ] Replace v3 import with `import { YuKumo } from "YuKumo"`
+- [ ] Replace v3 import with `import { YuKumo } from "yukumo"`
 - [ ] Update node configuration format
 - [ ] Add `handleVoiceStateUpdate()` / `handleVoiceServerUpdate()` calls
 - [ ] Replace `node.createPlayer()` with `YuKumo.createPlayer()`

@@ -96,8 +96,13 @@ YuKumo automatically distributes players across nodes.
 |----------|----------|
 | `LeastUsedSelector` | **(Default)** Fewest players |
 | `LeastPenaltySelector` | Lowest penalty (players + CPU + frames) |
+| `CpuUsageSelector` | Lowest Lavalink CPU load |
+| `MemoryUsageSelector` | Lowest memory usage |
+| `LowestPingSelector` | Lowest WebSocket round-trip ping |
+| `RegionSelector` | Region-aware with fallback selector |
 | `RoundRobinSelector` | Round-robin order |
 | `RandomSelector` | Random connected node |
+| `CustomSelector` | Custom function `(nodes, guildId) => Node | null` |
 
 ```ts
 client.nodes.setSelector(new RoundRobinSelector());
@@ -106,7 +111,7 @@ client.nodes.setSelector(new RoundRobinSelector());
 ### Custom selector
 
 ```ts
-import type { NodeSelector, Node } from "YuKumo";
+import type { NodeSelector, Node } from "yukumo";
 
 class RegionAwareSelector implements NodeSelector {
   private regionMap = new Map<string, string>();

@@ -18,7 +18,7 @@ const badges = [
   { label: "60 KB minzip", color: "#6366f1" },
   { label: "MIT License", color: "#ec4899" },
   { label: "TypeScript Strict", color: "#2563eb" },
-  { label: "Zero Dependencies", color: "#16a34a" },
+  { label: "Minimal Deps (ws only)", color: "#16a34a" },
 ];
 
 const features = [
@@ -36,9 +36,9 @@ const features = [
   },
   {
     icon: Package,
-    title: "Zero Dependencies",
+    title: "Minimal Dependencies",
     description:
-      "No third-party runtime dependencies. Uses native Node.js and Bun WebSocket/HTTP primitives.",
+      "Only one runtime dependency (ws). Lightweight footprint with native Bun WebSocket support.",
   },
   {
     icon: Boxes,
@@ -65,7 +65,7 @@ const stats = [
   { value: "9.3M", label: "Queue ops / sec" },
   { value: "663k", label: "Events / sec" },
   { value: "60KB", label: "Bundle size" },
-  { value: "0", label: "Runtime deps" },
+  { value: "1", label: "Runtime dep (ws)" },
 ];
 
 const frameworks = [
@@ -99,7 +99,7 @@ export default function HomePage() {
           <span className="font-medium text-fd-foreground">
             Lavalink v4 client
           </span>{" "}
-          engineered for TypeScript and JavaScript. Zero runtime dependencies,
+          engineered for TypeScript and JavaScript. Minimal dependencies (only ws),
           full strict type safety, and a framework-agnostic architecture.
         </p>
 
@@ -167,7 +167,7 @@ export default function HomePage() {
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-fd-muted-foreground">
             Every subsystem in YuKumo is engineered to be fast, type-safe, and
-            dependency-free out of the box.
+            lightweight out of the box.
           </p>
         </div>
 

@@ -5,21 +5,21 @@ full: true
 ---
 
 <div className="flex gap-2 items-center flex-wrap mb-4">
-  <img src="https://img.shields.io/npm/v/YuKumo?color=7c3aed&style=flat-square" alt="npm version" />
-  <img src="https://img.shields.io/bundlephobia/minzip/YuKumo?color=6366f1&label=minified%20size&style=flat-square" alt="bundle size" />
-  <img src="https://img.shields.io/npm/l/YuKumo?color=ec4899&style=flat-square" alt="license" />
+  <img src="https://img.shields.io/npm/v/yukumo?color=7c3aed&style=flat-square" alt="npm version" />
+  <img src="https://img.shields.io/bundlephobia/minzip/yukumo?color=6366f1&label=minified%20size&style=flat-square" alt="bundle size" />
+  <img src="https://img.shields.io/npm/l/yukumo?color=ec4899&style=flat-square" alt="license" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-blue?style=flat-square" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Dependencies-Zero-success?style=flat-square" alt="Zero Dependencies" />
+  <img src="https://img.shields.io/badge/Dependencies-Minimal_(ws_only)-success?style=flat-square" alt="Minimal Dependencies" />
 </div>
 
-YuKumo is a modern, lightweight, production-ready Lavalink v4 client engineered for TypeScript and JavaScript. Built with zero runtime dependencies, full strict type safety, and a framework-agnostic architecture.
+YuKumo is a modern, lightweight, production-ready Lavalink v4 client engineered for TypeScript and JavaScript. Built with minimal dependencies (only `ws`), full strict type safety, and a framework-agnostic architecture.
 
 ## Features
 
 <Cards>
   <Card title="High Performance Engine" icon="Zap" description="Player creation in ~1.8ms. Queue operations at ~9.3M ops/sec. Event dispatch at ~663k ops/sec." />
   <Card title="100% Strict Type Safety" icon="ShieldCheck" description="Full TypeScript support with strict typings across nodes, players, search, filters, and events." />
-  <Card title="Zero Dependencies" icon="Package" description="No third-party runtime dependencies. Uses native Node.js and Bun WebSocket/HTTP primitives." />
+  <Card title="Minimal Dependencies" icon="Package" description="Only one runtime dependency (ws). Lightweight footprint with native Bun WebSocket support." />
   <Card title="Framework Agnostic" icon="Boxes" description="Native support for discord.js, Seyfert, Eris, Oceanic.js, and Discordeno." />
   <Card title="Built-in Queue Manager" icon="ListMusic" description="Queue repeat modes, Fisher-Yates shuffle, playback history navigation, and index range manipulation." />
   <Card title="Modular Plugin Lifecycle" icon="Puzzle" description="Hook into search queries, voice connections, track playback, player destruction, and node selection." />
@@ -34,14 +34,14 @@ YuKumo is a modern, lightweight, production-ready Lavalink v4 client engineered 
 | **Queue Iteration Rate** | `9.3M ops/sec` | `1.2M ops/sec` | **7.7x faster** |
 | **Event Dispatch Throughput** | `663k ops/sec` | `120k ops/sec` | **5.5x faster** |
 | **Bundle Size (CJS / ESM)** | `60 KB` | `450+ KB` | **86% smaller** |
-| **Runtime Dependencies** | `0` | `8 - 14` | **Zero Security Footprint** |
+| **Runtime Dependencies** | `1 (ws)` | `8 - 14` | **Minimal Footprint** |
 
 ## Feature Comparison
 
 | Feature | YuKumo | Lavalink.js | Shoukaku | Erela.js |
 |---------|--------|-------------|----------|----------|
 | **Lavalink v4 Native** | Yes | Yes | Yes | No |
-| **Zero Dependencies** | Yes | No | No | No |
+| **Minimal Dependencies** | Yes (ws only) | No | No | No |
 | **Strict TypeScript** | Yes | No | Yes | No |
 | **Modular Plugins** | Yes | No | No | No |
 | **Built-in Queue** | Yes | No | No | Yes |
@@ -55,7 +55,7 @@ YuKumo is a modern, lightweight, production-ready Lavalink v4 client engineered 
   <Tab value="TypeScript">
 
 ```ts
-import { YuKumo, EqualizerFilter, TimescaleFilter } from "YuKumo";
+import { YuKumo, EqualizerFilter, TimescaleFilter } from "yukumo";
 
 // 1. Instantiate YuKumo
 const yukumo = new YuKumo({
@@ -97,7 +97,7 @@ yukumo.on("trackStart", (guildId, track) => console.log(`Track playing: ${track.
   <Tab value="JavaScript (ESM)">
 
 ```js
-import { YuKumo } from "YuKumo";
+import { YuKumo } from "yukumo";
 
 const yukumo = new YuKumo({
   nodes: [{ host: "localhost", port: 2333, password: "youshallnotpass" }],
@@ -110,7 +110,7 @@ await yukumo.init();
   <Tab value="JavaScript (CommonJS)">
 
 ```js
-const { YuKumo } = require("YuKumo");
+const { YuKumo } = require("yukumo");
 
 const yukumo = new YuKumo({
   nodes: [{ host: "localhost", port: 2333, password: "youshallnotpass" }],

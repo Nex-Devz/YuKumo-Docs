@@ -7,7 +7,7 @@ export const docsContentRoute = "/llms.mdx/docs";
 export const gitConfig = {
   user: "Nex-Devz",
   repo: "YuKumo",
-  branch: "main",
+  branch: "master",
 };
 
 // the repository that hosts this documentation website

@@ -22,41 +22,41 @@ Build a music bot with YuKumo in a few minutes.
   <Tab value="bun">
 
 ```bash
-bun add YuKumo
+bun add yukumo
 ```
 
   </Tab>
   <Tab value="npm">
 
 ```bash
-npm install YuKumo
+npm install yukumo
 ```
 
   </Tab>
   <Tab value="yarn">
 
 ```bash
-yarn add YuKumo
+yarn add yukumo
 ```
 
   </Tab>
   <Tab value="pnpm">
 
 ```bash
-pnpm add YuKumo
+pnpm add yukumo
 ```
 
   </Tab>
 </Tabs>
 
-YuKumo has **zero runtime dependencies** — what you install is what you get.
+YuKumo has minimal runtime dependencies (only `ws`) — lightweight and fast.
 
 Works with both **TypeScript** and **JavaScript** (ESM + CommonJS).
 
 ## 1. Create the YuKumo instance
 
 ```ts
-import { YuKumo } from "YuKumo";
+import { YuKumo } from "yukumo";
 
 const client = new YuKumo({
   nodes: [
@@ -72,7 +72,7 @@ const client = new YuKumo({
 
 ```js
 // CommonJS
-const { YuKumo } = require("YuKumo");
+const { YuKumo } = require("yukumo");
 ```
 
 ## 2. Initialize
@@ -85,7 +85,20 @@ This connects all Lavalink nodes, starts plugins, and prepares the player system
 
 ## 3. Forward voice events
 
-YuKumo needs voice state data from Discord to establish connections. Forward both events:
+YuKumo needs voice state data from Discord to establish connections. You can either use an adapter (recommended) or forward events manually.
+
+### Option A: Use DiscordJSAdapter (recommended)
+
+```ts
+import { YuKumo, DiscordJSAdapter } from "yukumo";
+
+const yukumo = new YuKumo({ nodes: [...] });
+const adapter = new DiscordJSAdapter(discordClient, yukumo);
+```
+
+The adapter handles all voice state and server update forwarding automatically.
+
+### Option B: Manual forwarding
 
 <Tabs items={['discord.js', 'Seyfert', 'Eris']}>
   <Tab value="discord.js">
@@ -246,13 +259,13 @@ process.on("SIGINT", async () => {
 
 ## Complete examples
 
-See working bots in the [examples directory](https://github.com/Nex-Devz/YuKumo/tree/main/examples):
+See working bots in the [examples directory](https://github.com/Nex-Devz/YuKumo/tree/master/examples):
 
-- [discord.js](https://github.com/Nex-Devz/YuKumo/tree/main/examples/discordjs)
-- [Seyfert](https://github.com/Nex-Devz/YuKumo/tree/main/examples/seyfert)
-- [Eris](https://github.com/Nex-Devz/YuKumo/tree/main/examples/eris)
-- [Oceanic.js](https://github.com/Nex-Devz/YuKumo/tree/main/examples/oceanic)
-- [Discordeno](https://github.com/Nex-Devz/YuKumo/tree/main/examples/discordeno)
+- [discord.js](https://github.com/Nex-Devz/YuKumo/tree/master/examples/discordjs)
+- [Seyfert](https://github.com/Nex-Devz/YuKumo/tree/master/examples/seyfert)
+- [Eris](https://github.com/Nex-Devz/YuKumo/tree/master/examples/eris)
+- [Oceanic.js](https://github.com/Nex-Devz/YuKumo/tree/master/examples/oceanic)
+- [Discordeno](https://github.com/Nex-Devz/YuKumo/tree/master/examples/discordeno)
 
 ## Next steps
 
