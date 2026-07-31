@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a new page, guide, or improvement for the docs
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your suggestion! A great feature request explains the problem and the proposed solution clearly.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? What is missing from the current docs?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to see added or changed.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative approaches you've considered.
+    validations:
+      required: false
+  - type: textarea
+    id: examples
+    attributes:
+      label: References
+      description: Links to similar docs, guides, or examples that inspired this request.
+    validations:
+      required: false

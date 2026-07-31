@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a problem with the documentation site or its content
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue! Before submitting, please check the existing [issues](https://github.com/Nex-Devz/YuKumo-Docs/issues) to avoid duplicates.
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+      description: The URL of the page where the issue occurs.
+      placeholder: "https://yukumo.dev/docs/getting-started"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Steps to trigger the problem.
+      placeholder: |
+        1. Go to ...
+        2. Click on ...
+        3. See error
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your environment (OS, browser, Node.js version) and whether you run the site locally or visit a deployed version.
+      placeholder: |
+        - OS: Windows 11
+        - Browser: Chrome 130
+        - Node.js: 22
+        - Local/Deployed: Deployed
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context or screenshots about the problem here.
+    validations:
+      required: false

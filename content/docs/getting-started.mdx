@@ -1,0 +1,264 @@
+---
+title: Getting Started
+description: Build a music bot with YuKumo in a few minutes.
+icon: Rocket
+---
+
+Build a music bot with YuKumo in a few minutes.
+
+## Prerequisites
+
+- Node.js 18+ or Bun 1.0+
+- A Lavalink v4 server running and accessible
+- A Discord bot token with `GuildVoiceStates` and `GuildMessages` intents
+
+<Callout type="info" title="No Lavalink server?">
+  See the [Node Deployment](/docs/node-deployment) guide for quick Docker setup.
+</Callout>
+
+## Installation
+
+<Tabs items={['bun', 'npm', 'yarn', 'pnpm']}>
+  <Tab value="bun">
+
+```bash
+bun add YuKumo
+```
+
+  </Tab>
+  <Tab value="npm">
+
+```bash
+npm install YuKumo
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn add YuKumo
+```
+
+  </Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm add YuKumo
+```
+
+  </Tab>
+</Tabs>
+
+YuKumo has **zero runtime dependencies** — what you install is what you get.
+
+Works with both **TypeScript** and **JavaScript** (ESM + CommonJS).
+
+## 1. Create the YuKumo instance
+
+```ts
+import { YuKumo } from "YuKumo";
+
+const client = new YuKumo({
+  nodes: [
+    {
+      host: "localhost",
+      port: 2333,
+      password: "youshallnotpass",
+      name: "primary",
+    },
+  ],
+});
+```
+
+```js
+// CommonJS
+const { YuKumo } = require("YuKumo");
+```
+
+## 2. Initialize
+
+```ts
+await client.init();
+```
+
+This connects all Lavalink nodes, starts plugins, and prepares the player system.
+
+## 3. Forward voice events
+
+YuKumo needs voice state data from Discord to establish connections. Forward both events:
+
+<Tabs items={['discord.js', 'Seyfert', 'Eris']}>
+  <Tab value="discord.js">
+
+```ts
+client.on("voiceStateUpdate", (oldState, newState) => {
+  client.handleVoiceStateUpdate({
+    guildId: newState.guild.id,
+    sessionId: newState.sessionId ?? "",
+    channelId: newState.channelId,
+    userId: newState.id,
+  });
+});
+
+client.on("voiceServerUpdate", (data) => {
+  if (!data.endpoint) return;
+  client.handleVoiceServerUpdate(data.guildId, {
+    token: data.token,
+    endpoint: data.endpoint,
+  });
+});
+```
+
+  </Tab>
+  <Tab value="Seyfert">
+
+```ts
+client.on("voiceStateUpdate", (update) => {
+  client.handleVoiceStateUpdate({
+    guildId: update.guildId,
+    sessionId: update.sessionId,
+    channelId: update.channelId,
+    userId: update.userId,
+  });
+});
+
+client.on("voiceServerUpdate", (update) => {
+  client.handleVoiceServerUpdate(update.guildId, {
+    token: update.token,
+    endpoint: update.endpoint,
+  });
+});
+```
+
+  </Tab>
+  <Tab value="Eris">
+
+```ts
+client.on("voiceStateUpdate", (member, oldState) => {
+  client.handleVoiceStateUpdate({
+    guildId: member.guild.id,
+    sessionId: member.sessionId,
+    channelId: member.channelId,
+    userId: member.id,
+  });
+});
+
+client.on("voiceServerUpdate", (data) => {
+  client.handleVoiceServerUpdate(data.guildId, {
+    token: data.token,
+    endpoint: data.endpoint,
+  });
+});
+```
+
+  </Tab>
+</Tabs>
+
+<Callout type="warning" title="Required">
+  Without forwarding **both** events, YuKumo cannot establish a voice connection. This is the most common setup mistake.
+</Callout>
+
+## 4. Create a player
+
+```ts
+const player = await client.createPlayer({
+  guildId: "123456789",
+  voiceChannelId: "987654321",
+  textChannelId: "111111111",
+  selfDeaf: true,
+  selfMute: false,
+});
+```
+
+If a player already exists for this guild, the existing instance is returned.
+
+## 5. Search and play
+
+```ts
+const result = await client.search("never gonna give you up");
+
+if (result.tracks.length > 0) {
+  await client.play("123456789", result.tracks[0]);
+  console.log(`Playing: ${result.tracks[0].info.title}`);
+}
+```
+
+Supports any Lavalink source: `ytsearch:`, `scsearch:`, `spsearch:`, direct URLs, and more.
+
+## Player controls
+
+| Method | Description |
+|--------|-------------|
+| `client.pause(guildId)` | Pause playback |
+| `client.resume(guildId)` | Resume playback |
+| `client.stop(guildId)` | Stop and clear queue |
+| `client.skip(guildId)` | Skip to next track |
+| `client.setVolume(guildId, 100)` | Set volume (0–1000) |
+| `client.destroyPlayer(guildId)` | Destroy player and leave voice |
+
+```ts
+await client.pause("123456789");
+await client.setVolume("123456789", 80);
+```
+
+## Events
+
+Subscribe to real-time events from Lavalink:
+
+```ts
+client.on("trackStart", (guildId, track) => {
+  console.log(`Now playing: ${track.info.title}`);
+});
+
+client.on("trackEnd", (guildId, track, reason) => {
+  console.log(`Track ended: ${reason}`);
+});
+
+client.on("queueEnd", (guildId) => {
+  console.log(`Queue empty in ${guildId}`);
+});
+
+client.on("nodeReady", (nodeId) => {
+  console.log(`Node connected: ${nodeId}`);
+});
+
+client.on("nodeDisconnected", (nodeId, code, reason) => {
+  console.warn(`Node disconnected: ${reason}`);
+});
+
+client.on("voiceReady", (guildId) => {
+  console.log(`Voice ready in ${guildId}`);
+});
+
+client.on("voiceDisconnected", (guildId) => {
+  console.log(`Voice disconnected from ${guildId}`);
+});
+```
+
+## Clean shutdown
+
+```ts
+process.on("SIGINT", async () => {
+  await client.destroy(); // destroys players, disconnects nodes, stops plugins
+  process.exit(0);
+});
+```
+
+## Complete examples
+
+See working bots in the [examples directory](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples):
+
+- [discord.js](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples/discordjs)
+- [Seyfert](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples/seyfert)
+- [Eris](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples/eris)
+- [Oceanic.js](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples/oceanic)
+- [Discordeno](https://github.com/Nex-Devz/YuKumo-Docs/tree/main/examples/discordeno)
+
+## Next steps
+
+<Cards>
+  <Card title="API Reference" href="/docs/api-reference" icon="BookOpen" description="Detailed documentation for every public export." />
+  <Card title="Plugin Development" href="/docs/plugin-development" icon="Puzzle" description="Extend YuKumo with lifecycle hooks." />
+  <Card title="Node Deployment" href="/docs/node-deployment" icon="Server" description="Production tips for running Lavalink nodes." />
+  <Card title="FAQ" href="/docs/faq" icon="CircleQuestionMark" description="Common questions and troubleshooting." />
+</Cards>

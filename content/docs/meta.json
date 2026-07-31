@@ -1,0 +1,11 @@
+{
+  "pages": [
+    "index",
+    "getting-started",
+    "migration",
+    "node-deployment",
+    "plugin-development",
+    "api-reference",
+    "faq"
+  ]
+}

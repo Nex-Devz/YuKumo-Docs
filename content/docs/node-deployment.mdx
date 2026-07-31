@@ -1,0 +1,189 @@
+---
+title: Node Deployment
+description: Setup Lavalink v4 nodes for production with YuKumo.
+icon: Server
+---
+
+Setup Lavalink v4 nodes for production with YuKumo.
+
+## Lavalink Setup
+
+### Docker (recommended)
+
+```bash
+docker run -d \
+  --name lavalink \
+  -p 2333:2333 \
+  -v /path/to/application.yml:/opt/Lavalink/application.yml \
+  ghcr.io/lavalink-devs/Lavalink:4
+```
+
+### Manual
+
+```bash
+java -jar Lavalink.jar
+```
+
+### application.yml
+
+```yaml
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: true
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      rotation: true
+      distortion: true
+      channelMix: true
+      lowPass: true
+```
+
+## Node Configuration
+
+```ts
+const client = new YuKumo({
+  nodes: [
+    {
+      host: "localhost",
+      port: 2333,
+      password: "youshallnotpass",
+      name: "primary",
+      secure: false,
+      resumeTimeout: 60,
+      resumeKey: "my-resume-key",
+      maxRetries: 5,
+      retryDelay: 1000,
+      retryDelayMax: 30000,
+    },
+  ],
+});
+```
+
+## Multiple Nodes
+
+```ts
+new YuKumo({
+  nodes: [
+    { host: "eu.example.com", port: 2333, password: "pass1", name: "eu-west" },
+    { host: "us.example.com", port: 2333, password: "pass2", name: "us-east" },
+    { host: "asia.example.com", port: 2333, password: "pass3", name: "asia" },
+  ],
+});
+```
+
+YuKumo automatically distributes players across nodes.
+
+## Selection Strategies
+
+| Strategy | Behavior |
+|----------|----------|
+| `LeastUsedSelector` | **(Default)** Fewest players |
+| `LeastPenaltySelector` | Lowest penalty (players + CPU + frames) |
+| `RoundRobinSelector` | Round-robin order |
+| `RandomSelector` | Random connected node |
+
+```ts
+client.nodes.setSelector(new RoundRobinSelector());
+```
+
+### Custom selector
+
+```ts
+import type { NodeSelector, Node } from "YuKumo";
+
+class RegionAwareSelector implements NodeSelector {
+  private regionMap = new Map<string, string>();
+
+  constructor(regionMap: Record<string, string>) {
+    for (const [guildId, region] of Object.entries(regionMap)) {
+      this.regionMap.set(guildId, region);
+    }
+  }
+
+  pick(nodes: Node[], guildId: string): Node | null {
+    const preferred = this.regionMap.get(guildId);
+    const connected = nodes.filter((n) => n.state === "connected");
+    if (!connected.length) return null;
+
+    if (preferred) {
+      const regional = connected.filter((n) =>
+        n.config.name?.startsWith(preferred),
+      );
+      if (regional.length) return regional[0];
+    }
+
+    return connected[0];
+  }
+}
+```
+
+## Production Hardening
+
+### Connection resilience
+
+```ts
+{
+  maxRetries: 10,
+  retryDelay: 2000,
+  retryDelayMax: 60000,
+}
+```
+
+### Session resumption
+
+Avoid interruption during short restarts:
+
+```ts
+{
+  resumeTimeout: 120,
+  resumeKey: "your-unique-key",
+}
+```
+
+### JVM limits
+
+```bash
+java -Xmx2G -jar Lavalink.jar
+```
+
+### Monitoring
+
+```ts
+client.on("nodeReady", (id) => console.log(`Ready: ${id}`));
+client.on("nodeDisconnected", (id, code, reason) =>
+  console.warn(`Disconnected: ${id} (${code}) ${reason}`),
+);
+client.on("nodeReconnected", (id) => console.log(`Reconnected: ${id}`));
+client.on("nodeError", (id, error) => console.error(`Error on ${id}:`, error));
+client.on("stats", (id, stats) => {
+  console.log(`${id}: ${stats.playingPlayers} playing / ${stats.players} total`);
+});
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Node won't connect | Check firewall, password, Lavalink logs |
+| Frequent failovers | Increase `maxRetries` / `retryDelay` |
+| High CPU | Add more nodes, reduce players per node |
+| Session resume fails | Use unique `resumeKey` per instance |
+| 401 Unauthorized | Password mismatch with `application.yml` |
+| 403 Forbidden | Check Lavalink IP whitelist / rate limits |

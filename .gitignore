@@ -1,0 +1,37 @@
+# deps
+/node_modules
+
+# generated content
+.source
+
+# test & build
+/coverage
+/.next/
+/out/
+/build
+*.tsbuildinfo
+
+# env
+.env
+.env*.local
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# misc
+.DS_Store
+*.pem
+/.pnp
+.pnp.js
+
+# editors / IDEs
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# others
+.vercel
+next-env.d.ts

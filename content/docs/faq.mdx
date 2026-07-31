@@ -1,0 +1,133 @@
+---
+title: FAQ / Troubleshooting
+description: Common questions and solutions for YuKumo.
+icon: CircleQuestionMark
+---
+
+Common questions and solutions.
+
+## General
+
+**What is YuKumo?**
+A modern, lightweight Lavalink v4 client for TypeScript. Modular, type-safe, framework-agnostic.
+
+**Which Node.js versions?**
+Node.js 18+ and Bun 1.0+. ESM-first with CJS fallback.
+
+**Which Discord libraries?**
+All of them. discord.js, Seyfert, Eris, Oceanic.js, Discordeno — forward voice events and you're set.
+
+**Do I need Lavalink?**
+Yes. YuKumo is a client — you need a Lavalink v4 server. See [Node Deployment](/docs/node-deployment).
+
+## Setup
+
+**Player never becomes ready?**
+Missing voice forwarding. You must call:
+
+```ts
+client.handleVoiceStateUpdate(data);
+client.handleVoiceServerUpdate(guildId, data);
+```
+
+**"No available nodes"?**
+
+1. Is Lavalink running? → `curl http://localhost:2333/v4/info`
+2. Password match `application.yml`?
+3. Host and port correct?
+4. Did you call `await YuKumo.init()`?
+
+**Node connects then disconnects?**
+
+- Wrong password → 401
+- Version mismatch → ensure v4.x
+- Firewall → port 2333 accessible?
+- Resume key conflict → use unique `resumeKey`
+
+```ts
+client.on("nodeDisconnected", (nodeId, code, reason) => {
+  console.error(`${nodeId}: ${reason}`);
+});
+```
+
+## Playback
+
+**No audio (tracks load fine)?**
+
+1. Forwarding voice events?
+2. Bot has **Speak** permission?
+3. Check Lavalink logs
+4. Is bot in the voice channel?
+
+**Queue not advancing?**
+
+1. Receiving `trackEnd` events?
+2. WebSocket stable?
+3. Listen for errors:
+
+```ts
+client.on("trackException", (guildId, track, exception) => {
+  console.error(exception);
+});
+```
+
+**Filters not applying?**
+Filters apply on next `play()`:
+
+```ts
+player.filters.add(new TimescaleFilter().setSpeed(1.5));
+await player.play();
+```
+
+## Performance
+
+**How many guilds?**
+Hundreds per node on reasonable hardware. Scale with more nodes.
+
+**Memory high?**
+YuKumo has zero deps. Check:
+
+- Lavalink JVM heap: `-Xmx512M`
+- Destroy players after use
+- Default `MemoryStorage` is most efficient
+
+**Playback delay?**
+50ms debounce in `VoiceStateTracker` prevents race conditions.
+
+## Plugins
+
+**Hooks not called?**
+
+1. Register before `YuKumo.init()`
+2. Add hooks in `init()`
+3. Verify type signatures
+
+**Duplicate plugin names?**
+Not allowed. Throws `PluginError`.
+
+**Remove a hook?**
+
+```ts
+const handler = async (query: string) => ({ query, source: "ytsearch" });
+client.plugins.addHook("beforeSearch", handler);
+client.plugins.removeHook("beforeSearch", handler);
+```
+
+## Errors
+
+| Error | Cause |
+|-------|-------|
+| `PluginError: failed to initialize` | `init()` threw |
+| `PlayerError: No tracks in queue` | Empty queue on play |
+| `RestError: 401` | Password mismatch |
+| `RestError: 403` | Lavalink rate-limit / IP block |
+| `TypeError: handleVoiceStateUpdate` | Stale build — rebuild |
+
+## Still Stuck?
+
+Open an [issue on GitHub](https://github.com/Nex-Devz/YuKumo-Docs/issues). Include:
+
+- YuKumo version
+- Lavalink version
+- Node.js / Bun version
+- Minimal reproduction code

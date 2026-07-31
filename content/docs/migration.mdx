@@ -1,0 +1,151 @@
+---
+title: Migration Guide
+description: Migrate from Lavalink v3 clients to YuKumo (Lavalink v4).
+icon: ArrowRightLeft
+---
+
+Migrate from Lavalink v3 clients to YuKumo (Lavalink v4).
+
+## Why Lavalink v4?
+
+Lavalink v4 introduced significant breaking changes:
+
+- **New WebSocket protocol** — opcodes and payloads changed
+- **REST API overhaul** — endpoints and shapes differ
+- **Player updates are PATCH** — no more full state replacement
+- **Session-based routing** — all operations need a session ID
+- **Filters on update** — sent inline with player updates
+- **New event names** — camelCase in v4
+
+## Architecture
+
+### v3 (traditional)
+
+```text
+Client → Node (REST + WS)
+       → Player (per guild)
+```
+
+### v4 (YuKumo)
+
+```text
+YuKumo → NodeManager → Nodes (REST + WS)
+     → PlayerManager → Players
+     → PluginManager → Hooks
+     → VoiceStateTracker → State
+     → StorageAdapter → Persistence
+```
+
+## Breaking Changes
+
+### 1. Player operations need session ID
+
+**v3:** `node.rest.updatePlayer(guildId, { track })`
+
+**v4 (YuKumo):** YuKumo handles session IDs internally
+
+```ts
+await client.play(guildId, trackData);
+await player.play();
+```
+
+### 2. Track loading
+
+**v3:** `node.rest.loadTracks({ query: "ytsearch:hello" })`
+
+**v4 (YuKumo):**
+
+```ts
+const result = await client.search("hello", "ytsearch");
+```
+
+### 3. Player creation
+
+**v3:** `node.createPlayer(guildId)`
+
+**v4 (YuKumo):**
+
+```ts
+const player = await client.createPlayer({ guildId, voiceChannelId: "123" });
+```
+
+### 4. Voice state handling
+
+**v3:** Usually implicit
+
+**v4 (YuKumo):** Must forward explicitly
+
+```ts
+client.handleVoiceStateUpdate(data);
+client.handleVoiceServerUpdate(guildId, data);
+```
+
+### 5. Filters
+
+**v3:** `player.setEqualizer(...)`
+
+**v4 (YuKumo):**
+
+```ts
+import { EqualizerFilter, TimescaleFilter, FilterChain } from "YuKumo";
+
+const chain = new FilterChain();
+chain.add(new EqualizerFilter().setBand(0, 0.5));
+chain.add(new TimescaleFilter().setSpeed(1.5));
+
+player.filters.add(new EqualizerFilter().setBand(0, 0.5));
+```
+
+Filters apply on next `play()`.
+
+### 6. Events
+
+**v3:** `player.on("end", (data) => {})`
+
+**v4 (YuKumo):**
+
+```ts
+client.on("trackEnd", (guildId, track, reason) => {});
+player.events.on("trackEnd", (guildId, track, reason) => {});
+```
+
+Event names use Lavalink v4 camelCase convention.
+
+## Feature Mapping
+
+| v3 Feature | YuKumo Equivalent |
+|------------|----------------|
+| `node.rest.loadTracks()` | `YuKumo.search()` |
+| `node.rest.decodeTrack()` | `node.rest.decodeTrack()` |
+| `node.createPlayer()` | `YuKumo.createPlayer()` |
+| `player.play()` | `YuKumo.play()` or `player.play()` |
+| `player.stop()` | `YuKumo.stop()` or `player.stop()` |
+| `player.pause()` | `YuKumo.pause()` or `player.pause()` |
+| `player.resume()` | `YuKumo.resume()` or `player.resume()` |
+| `player.setVolume()` | `YuKumo.setVolume()` or `player.setVolume()` |
+| `player.setEqualizer()` | `player.filters.add(new EqualizerFilter(...))` |
+| `player.setTimescale()` | `player.filters.add(new TimescaleFilter(...))` |
+| `player.queue.add()` | `player.queue.enqueue()` |
+| `player.queue.next()` | `player.queue.next()` |
+| `node.on("ready")` | `YuKumo.on("nodeReady")` |
+| `node.on("error")` | `YuKumo.on("nodeError")` |
+| `player.on("end")` | `YuKumo.on("trackEnd")` |
+| `player.on("start")` | `YuKumo.on("trackStart")` |
+| `player.on("stuck")` | `YuKumo.on("trackStuck")` |
+| `player.on("exception")` | `YuKumo.on("trackException")` |
+
+## Migration Checklist
+
+- [ ] Replace v3 import with `import { YuKumo } from "YuKumo"`
+- [ ] Update node configuration format
+- [ ] Add `handleVoiceStateUpdate()` / `handleVoiceServerUpdate()` calls
+- [ ] Replace `node.createPlayer()` with `YuKumo.createPlayer()`
+- [ ] Replace filter methods with `FilterChain` + filter classes
+- [ ] Update event listeners to v4 naming
+- [ ] Update track loading to `SearchResult` type
+- [ ] Ensure Lavalink server is v4
+- [ ] Test with staging before production
+
+## Need Help?
+
+Open an [issue on GitHub](https://github.com/Nex-Devz/YuKumo-Docs/issues) or check the [FAQ](/docs/faq).

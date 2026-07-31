@@ -1,0 +1,197 @@
+---
+title: Plugin Development
+description: Extend YuKumo with lifecycle hooks and custom modules.
+icon: Puzzle
+---
+
+Extend YuKumo with lifecycle hooks and custom modules.
+
+## Plugin Interface
+
+```ts
+interface Plugin {
+  name: string;    // must be unique
+  version: string;
+  init?(): void | Promise<void>;
+  start?(): void | Promise<void>;
+  destroy?(): void | Promise<void>;
+}
+```
+
+### Lifecycle
+
+| Phase | When | Purpose |
+|-------|------|---------|
+| `init()` | On register | Setup, connect services, add hooks |
+| `start()` | `YuKumo.init()` | Begin after nodes connect |
+| `destroy()` | Unregister / shutdown | Cleanup, remove hooks |
+
+## Basic plugin
+
+```ts
+import type { Plugin, PluginManager } from "YuKumo";
+
+export class LoggingPlugin implements Plugin {
+  readonly name = "logging";
+  readonly version = "1.0.0";
+  private manager?: PluginManager;
+
+  init(manager?: PluginManager): void {
+    this.manager = manager;
+  }
+
+  start(): void {
+    this.manager?.addHook("beforePlay", async (_guildId, track) => {
+      console.log(`Playing: ${track.info.title}`);
+      return track;
+    });
+  }
+
+  destroy(): void {
+    console.log("Logging plugin stopped");
+  }
+}
+
+// Usage
+new YuKumo({
+  nodes: [...],
+  plugins: [new LoggingPlugin()],
+});
+```
+
+## Lifecycle Hooks
+
+### Add a hook
+
+```ts
+client.plugins.addHook("beforeSearch", async (query, source) => {
+  return { query, source: source ?? "ytsearch" };
+});
+```
+
+### Cancel an operation
+
+Return `null`:
+
+```ts
+client.plugins.addHook("beforeSearch", async (query) => {
+  if (query.trim() === "") return null;
+  return { query, source: undefined };
+});
+```
+
+### Available hooks
+
+| Hook | Use Case |
+|------|----------|
+| `beforeSearch` | Modify or validate queries |
+| `afterSearch` | Filter or transform results |
+| `beforeConnect` | Validate voice channel join |
+| `afterConnect` | Log connection events |
+| `beforePlay` | Modify or block tracks |
+| `afterPlay` | Log or update status |
+| `beforeDestroy` | Prevent destruction |
+| `afterDestroy` | Clean up resources |
+| `onNodeSelect` | Override node selection |
+
+### Execution order
+
+1. Hooks run in registration order
+2. Each receives the previous hook's output
+3. Returning `null` cancels the pipeline
+4. `onNodeSelect`: first non-null result wins
+
+## Real-world examples
+
+### Track blacklist
+
+```ts
+export class TrackBlacklistPlugin {
+  readonly name = "track-blacklist";
+  readonly version = "1.0.0";
+  private blacklist = new Set<string>();
+
+  constructor(ids: string[]) {
+    ids.forEach((id) => this.blacklist.add(id));
+  }
+
+  init(manager: PluginManager): void {
+    manager.addHook("beforePlay", async (_guildId, track) => {
+      if (this.blacklist.has(track.info.identifier)) {
+        console.log(`Blocked: ${track.info.title}`);
+        return null;
+      }
+      return track;
+    });
+  }
+
+  addToBlacklist(id: string): void {
+    this.blacklist.add(id);
+  }
+}
+```
+
+### Custom node selector
+
+```ts
+client.plugins.addHook("onNodeSelect", async (guildId, availableNodes) => {
+  if (premiumGuilds.has(guildId) && availableNodes.includes("premium")) {
+    return "premium";
+  }
+  return null;
+});
+```
+
+### Analytics
+
+```ts
+export class AnalyticsPlugin implements Plugin {
+  readonly name = "analytics";
+  readonly version = "1.0.0";
+  private plays = 0;
+
+  init(manager: PluginManager): void {
+    manager.addHook("afterPlay", async () => {
+      this.plays++;
+    });
+  }
+
+  destroy(): void {
+    console.log(`Total plays: ${this.plays}`);
+  }
+}
+```
+
+## Best Practices
+
+- **Keep hooks fast** — they run synchronously in the pipeline
+- **Handle errors** — wrap in try/catch to avoid breaking the pipeline
+- **Unique names** — duplicate registration throws `PluginError`
+- **Clean up in `destroy()`** — remove hooks to prevent memory leaks
+
+```ts
+export class CleanPlugin implements Plugin {
+  readonly name = "clean";
+  readonly version = "1.0.0";
+  private manager?: PluginManager;
+  private handler = async (guildId: string) => {
+    console.log(`Destroyed player in ${guildId}`);
+  };
+
+  init(manager: PluginManager): void {
+    this.manager = manager;
+    manager.addHook("afterDestroy", this.handler);
+  }
+
+  destroy(): void {
+    this.manager?.removeHook("afterDestroy", this.handler);
+  }
+}
+```
+
+## Next steps
+
+<Cards>
+  <Card title="API Reference" href="/docs/api-reference" icon="BookOpen" description="Hook type signatures." />
+  <Card title="FAQ" href="/docs/faq" icon="CircleQuestionMark" description="Common plugin troubleshooting." />
+</Cards>

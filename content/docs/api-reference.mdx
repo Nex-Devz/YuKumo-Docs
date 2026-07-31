@@ -1,0 +1,475 @@
+---
+title: API Reference
+description: Comprehensive reference for every public export in YuKumo.
+icon: BookOpen
+---
+
+Comprehensive reference for every public export in YuKumo. Supports TypeScript and JavaScript (ESM + CommonJS).
+
+## YuKumo
+
+The central orchestrator combining all subsystems.
+
+```ts
+class YuKumo {
+  constructor(options: ManagerOptions);
+
+  // Lifecycle
+  init(): Promise<void>;
+  destroy(): Promise<void>;
+
+  // Search
+  search(query: string | SearchOptions, source?: string): Promise<SearchResult>;
+  lavaSearch(query: string, types?: LavaSearchType[], nodeName?: string): Promise<LavaSearchResult>;
+  getLyrics(encodedTrack: string, nodeName?: string): Promise<any>;
+
+  // Player management
+  createPlayer(options: YuKumoPlayerCreateOptions): Promise<Player>;
+  getPlayer(guildId: string): Player | undefined;
+  getPlayers(): Player[];
+  hasPlayer(guildId: string): boolean;
+  destroyPlayer(guildId: string): Promise<boolean>;
+
+  // Playback
+  play(guildId: string, track: TrackData): Promise<void>;
+  pause(guildId: string): Promise<void>;
+  resume(guildId: string): Promise<void>;
+  stop(guildId: string): Promise<void>;
+  skip(guildId: string): Promise<TrackData | null>;
+  setVolume(guildId: string, volume: number): Promise<void>;
+
+  // Voice
+  handleVoiceStateUpdate(data: VoiceStateUpdate): Promise<void>;
+  handleVoiceServerUpdate(guildId: string, data: VoiceServerUpdate): Promise<void>;
+
+  // Nodes
+  getNode(id: string): Node | undefined;
+  getNodes(): Node[];
+
+  // Events
+  on<E extends EventName>(event: E, callback: EventCallback<E>): this;
+
+  // Subsystems (public for advanced use)
+  readonly nodes: NodeManager;
+  readonly players: PlayerManager;
+  readonly plugins: PluginManager;
+  readonly events: EventDispatcher;
+  readonly storage: StorageAdapter;
+  readonly voice: VoiceStateTracker;
+}
+```
+
+### ManagerOptions
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `nodes` | `NodeConfig[]` | **required** | Lavalink node configurations |
+| `storageAdapter` | `StorageAdapter` | `MemoryStorage` | Custom storage backend |
+| `plugins` | `PluginDef[]` | `[]` | Plugin instances to register |
+| `defaultNodeSelector` | `NodeSelector` | `LeastUsedSelector` | Default node selection strategy |
+
+### NodeConfig
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `host` | `string` | **required** | Lavalink hostname |
+| `port` | `number` | **required** | Lavalink port |
+| `password` | `string` | **required** | Lavalink password |
+| `name` | `string` | auto | Node identifier |
+| `secure` | `boolean` | `false` | Use `https`/`wss` |
+| `resumeTimeout` | `number` | `60` | Resume timeout (seconds) |
+| `resumeKey` | `string` | auto | Resume identifier |
+| `maxRetries` | `number` | `5` | Connection retry limit |
+| `retryDelay` | `number` | `1000` | Initial retry delay (ms) |
+| `retryDelayMax` | `number` | `30000` | Maximum retry delay (ms) |
+
+## Node
+
+### Node
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `config` | `NodeConfig` | Configuration this node was created with |
+| `ws` | `WebSocketClient` | WebSocket client |
+| `rest` | `RestClient` | REST client |
+| `state` | `NodeState` | `disconnected \| connecting \| connected \| destroyed` |
+| `penalties` | `Penalties` | Current penalty scores |
+| `playerCount` | `number` | Active players on this node |
+
+### NodeManager
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `add(config)` | `Node` | Register a new node |
+| `remove(id)` | `boolean` | Remove and destroy a node |
+| `get(id)` | `Node \| undefined` | Get node by name |
+| `getAll()` | `Node[]` | Get all registered nodes |
+| `getConnected()` | `Node[]` | Get only connected nodes |
+| `pick(guildId)` | `Node \| null` | Pick best node via selector |
+| `connectAll()` | `Promise<void>` | Connect all nodes |
+| `destroyAll()` | `Promise<void>` | Destroy all nodes |
+| `setSelector(selector)` | `void` | Replace selection strategy |
+| `size()` | `number` | Number of registered nodes |
+
+### Node Selectors
+
+| Selector | Strategy |
+|----------|----------|
+| `LeastUsedSelector` | **(Default)** Fewest players |
+| `LeastPenaltySelector` | Lowest penalty (players + CPU + frames) |
+| `RoundRobinSelector` | Round-robin order |
+| `RandomSelector` | Random connected node |
+
+```ts
+client.nodes.setSelector(new RoundRobinSelector());
+```
+
+## Player
+
+### Player
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `guildId` | `string` | Discord guild ID |
+| `node` | `Node` | Assigned Lavalink node |
+| `queue` | `Queue<TrackData>` | Track queue |
+| `filters` | `FilterChain` | Audio filter chain |
+| `events` | `EventDispatcher` | Player-local events |
+| `data` | `Map<string, any>` | Custom data map |
+| `status` | `PlayerStatus` | `idle \| playing \| paused \| destroyed` |
+| `volume` | `number` | Volume (0–1000) |
+| `paused` | `boolean` | Whether paused |
+| `currentTrack` | `TrackData \| null` | Current track |
+| `voiceState` | `InternalVoiceState \| null` | Voice connection state |
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `play(track?)` | `Promise<void>` | Begin playback |
+| `playTrack(track)` | `Promise<void>` | Play specific track |
+| `playPrevious()` | `Promise<TTrack \| null>` | Play previous track |
+| `pause()` | `Promise<void>` | Pause playback |
+| `resume()` | `Promise<void>` | Resume playback |
+| `stop()` | `Promise<void>` | Stop playback |
+| `setVolume(vol)` | `Promise<void>` | Change volume (0-1000) |
+| `seek(position)` | `Promise<void>` | Seek to position (ms) |
+| `destroy()` | `Promise<void>` | Destroy player |
+| `setVoiceChannel(id)` | `Promise<void>` | Move bot to channel |
+| `setTextChannel(id)` | `void` | Update text channel |
+| `search(query, source?)` | `Promise<SearchResult>` | Shortcut for YuKumo.search |
+| `setLoop(mode)` | `this` | Shortcut for queue.setRepeatMode |
+| `getLyrics(track?)` | `Promise<any>` | Shortcut for getLyrics |
+
+### PlayerManager
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `create(options)` | `Promise<Player>` | Create a player |
+| `get(guildId)` | `Player \| undefined` | Get by guild ID |
+| `has(guildId)` | `boolean` | Check if exists |
+| `destroy(guildId)` | `Promise<boolean>` | Destroy a player |
+| `getAll()` | `Player[]` | All players |
+| `getByNode(nodeId)` | `Player[]` | Players on a node |
+| `destroyAll()` | `Promise<void>` | Destroy all |
+| `size()` | `number` | Active player count |
+
+### YuKumoPlayerCreateOptions
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `guildId` | `string` | **required** | Discord guild ID |
+| `voiceChannelId` | `string` | **required** | Voice channel |
+| `textChannelId` | `string` | — | Text channel |
+| `selfDeaf` | `boolean` | `true` | Deafen on join |
+| `selfMute` | `boolean` | `false` | Mute on join |
+| `nodeSelector` | `NodeSelector` | default | Per-player selector override |
+
+## Queue
+
+### Queue&lt;T&gt;
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `enqueue(track, index?)` | `number` | Add track (optionally at index) |
+| `dequeue()` | `T \| null` | Remove and return front |
+| `start()` | `void` | Begin from front |
+| `next()` | `T \| null` | Advance to next |
+| `previous()` | `T \| null` | Go back |
+| `peek()` | `T \| null` | View without advancing |
+| `clear()` | `void` | Remove all |
+| `shuffle()` | `void` | Fisher-Yates shuffle |
+| `remove(index)` | `T \| null` | Remove at index |
+| `removeRange(start, end)` | `T[]` | Remove range |
+| `setRepeatMode(mode)` | `void` | `"none" \| "track" \| "queue"` |
+| `toArray()` | `T[]` | All tracks as array |
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `size` | `number` | Current track count |
+| `totalSize` | `number` | Including history |
+| `currentTrack` | `T \| null` | Current track |
+| `repeatMode` | `RepeatMode` | Repeat setting |
+
+```ts
+const queue = new Queue<TrackData>();
+queue.enqueue(track1);
+queue.enqueue(track2, 0);
+queue.setRepeatMode("queue");
+queue.shuffle();
+queue.start();
+
+let track;
+while ((track = queue.next()) !== null) {
+  // process track
+}
+```
+
+## Track
+
+### TrackData
+
+```ts
+interface TrackData {
+  encoded: string;
+  info: TrackInfo;
+  pluginInfo: Record<string, unknown>;
+  userData?: Record<string, unknown>;
+}
+
+interface TrackInfo {
+  identifier: string;
+  isSeekable: boolean;
+  author: string;
+  length: number;
+  isStream: boolean;
+  position: number;
+  title: string;
+  uri: string | null;
+  artworkUrl: string | null;
+  isrc: string | null;
+  sourceName: string;
+}
+```
+
+### SearchResult
+
+```ts
+interface SearchResult {
+  loadType: "track" | "playlist" | "search" | "empty" | "error";
+  tracks: TrackData[];
+  playlistInfo?: { name: string; selectedTrack: number };
+  exception?: { message: string; severity: "common" | "suspicious" | "fault" };
+}
+```
+
+## Filters
+
+### FilterChain
+
+| Method | Description |
+|--------|-------------|
+| `add(filter)` | Add a filter |
+| `remove(filter)` | Remove a filter |
+| `clear()` | Remove all |
+| `toPayload()` | Serialize to API payload |
+| `has(filter)` | Check if exists |
+| `getAll()` | Get all filters |
+
+### Available Filters
+
+| Filter | Key Methods |
+|--------|-------------|
+| `VolumeFilter` | `setVolume(value)` |
+| `EqualizerFilter` | `setBand(index, gain)` |
+| `KaraokeFilter` | `setLevel()`, `setMonoloLevel()`, `setFilterBand()`, `setFilterWidth()` |
+| `TimescaleFilter` | `setSpeed()`, `setPitch()`, `setRate()` |
+| `TremoloFilter` | `setFrequency()`, `setDepth()` |
+| `VibratoFilter` | `setFrequency()`, `setDepth()` |
+| `RotationFilter` | `setRotationHz()` |
+| `DistortionFilter` | `setSinOffset()`, `setSinScale()`, `setCosOffset()`, `setCosScale()`, `setTanOffset()`, `setTanScale()`, `setOffset()`, `setScale()` |
+| `ChannelMixFilter` | `setLeftToLeft()`, `setLeftToRight()`, `setRightToLeft()`, `setRightToRight()` |
+| `LowPassFilter` | `setSmoothing()` |
+
+```ts
+import { FilterChain, EqualizerFilter, TimescaleFilter } from "YuKumo";
+
+const chain = new FilterChain();
+chain
+  .add(new EqualizerFilter().setBand(0, 0.4))
+  .add(new TimescaleFilter().setSpeed(1.25));
+
+player.filters.add(new EqualizerFilter().setBand(0, 0.5));
+```
+
+## Voice
+
+### VoiceStateTracker
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `handleVoiceStateUpdate(data)` | `Promise<void>` | Process state update |
+| `handleVoiceServerUpdate(guildId, data)` | `Promise<void>` | Process server update |
+| `isReady(guildId)` | `boolean` | Connection established? |
+| `getState(guildId)` | `VoiceState \| undefined` | Get connection state |
+| `getVoiceState(guildId)` | `InternalVoiceState \| undefined` | Get internal state |
+| `getAll()` | `Map<string, VoiceState>` | All tracked states |
+| `remove(guildId)` | `void` | Remove state |
+
+### Voice Events
+
+| Event | Fires When |
+|-------|-----------|
+| `voiceReady` | Both `sessionId` and `endpoint`+`token` received (50ms debounce) |
+| `voiceDisconnected` | `channelId` becomes null |
+| `voiceReconnecting` | Session ID changes while connected |
+
+### VoiceStateUpdate
+
+```ts
+interface VoiceStateUpdate {
+  guildId: string;
+  sessionId: string;
+  channelId: string | null;
+  userId?: string;
+}
+```
+
+### VoiceServerUpdate
+
+```ts
+interface VoiceServerUpdate {
+  token: string;
+  endpoint: string | null;
+}
+```
+
+## Storage
+
+### StorageAdapter
+
+```ts
+interface StorageAdapter {
+  get(key: string): Promise<unknown | null>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  has(key: string): Promise<boolean>;
+  clear(): Promise<void>;
+}
+```
+
+| Adapter | Description |
+|---------|-------------|
+| `MemoryStorage` | **(Default)** In-memory `Map`. Zero overhead |
+| `RedisStorage` | Redis persistence (requires `redis` package) |
+
+```ts
+import { RedisStorage } from "YuKumo";
+
+const YuKumo = new YuKumo({
+  nodes: [...],
+  storageAdapter: new RedisStorage({ url: "redis://localhost:6379" }),
+});
+```
+
+## Plugin System
+
+### Plugin interface
+
+```ts
+interface Plugin {
+  name: string;
+  version: string;
+  init?(): void | Promise<void>;
+  start?(): void | Promise<void>;
+  destroy?(): void | Promise<void>;
+}
+```
+
+### PluginManager
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `register(plugin)` | `void` | Register plugin |
+| `unregister(name)` | `boolean` | Remove plugin |
+| `get(name)` | `Plugin \| undefined` | Get by name |
+| `getAll()` | `Plugin[]` | All plugins |
+| `startAll()` | `Promise<void>` | Start all |
+| `destroyAll()` | `Promise<void>` | Destroy all |
+| `addHook(hook, handler)` | `void` | Add lifecycle hook |
+| `removeHook(hook, handler)` | `void` | Remove lifecycle hook |
+
+### Lifecycle Hooks
+
+| Hook | Signature | Cancelable |
+|------|-----------|------------|
+| `beforeSearch` | `(query, source?) => { query, source? } \| null` | Yes |
+| `afterSearch` | `(result) => SearchResult \| null` | Yes |
+| `beforeConnect` | `(guildId, channelId) => { guildId, channelId } \| null` | Yes |
+| `afterConnect` | `(guildId, channelId) => void` | No |
+| `beforePlay` | `(guildId, track) => TrackData \| null` | Yes |
+| `afterPlay` | `(guildId, track) => void` | No |
+| `beforeDestroy` | `(guildId) => boolean` | Yes (return false) |
+| `afterDestroy` | `(guildId) => void` | No |
+| `onNodeSelect` | `(guildId, nodes) => string \| null` | Yes |
+
+## Errors
+
+| Error | When |
+|-------|------|
+| `YuKumoError` | Base error class |
+| `NodeError` | Node failures |
+| `NodeConnectionError` | Connection failures |
+| `PlayerError` | Player failures |
+| `PlayerNotConnectedError` | Player not connected |
+| `RestError` | HTTP errors (includes status code) |
+| `QueueError` | Queue operation errors |
+| `QueueFullError` | Queue at capacity |
+| `PluginError` | Plugin lifecycle errors |
+| `VoiceError` | Voice state errors |
+| `LoadError` | Track loading errors |
+
+```ts
+import { RestError, PlayerNotConnectedError } from "YuKumo";
+
+try {
+  await YuKumo.play("guildId", track);
+} catch (error) {
+  if (error instanceof RestError) {
+    console.error(`HTTP ${error.statusCode}: ${error.message}`);
+  }
+  if (error instanceof PlayerNotConnectedError) {
+    console.error("Player not connected");
+  }
+}
+```
+
+## Events
+
+### YuKumo-level
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `trackStart` | `(guildId, track)` | Track started |
+| `trackEnd` | `(guildId, track, reason)` | Track ended |
+| `trackStuck` | `(guildId, track, thresholdMs)` | Track stuck |
+| `trackException` | `(guildId, track, exception)` | Track error |
+| `queueEnd` | `(guildId)` | Queue empty |
+| `playerCreate` | `(guildId)` | Player created |
+| `playerDestroy` | `(guildId)` | Player destroyed |
+| `nodeReady` | `(nodeId)` | Node connected |
+| `nodeDisconnected` | `(nodeId, code, reason)` | Node disconnected |
+| `nodeReconnected` | `(nodeId)` | Node reconnected |
+| `nodeError` | `(nodeId, error)` | Node error |
+| `stats` | `(nodeId, stats)` | Node stats (~60s interval) |
+| `voiceReady` | `(guildId)` | Voice connected |
+| `voiceDisconnected` | `(guildId)` | Voice disconnected |
+| `voiceReconnecting` | `(guildId)` | Voice reconnecting |
+
+### Player-level (player.events)
+
+| Event | Payload |
+|-------|---------|
+| `trackStart` | `(guildId, track)` |
+| `trackEnd` | `(guildId, track, reason)` |
+| `trackStuck` | `(guildId, track, thresholdMs)` |
+| `trackException` | `(guildId, track, exception)` |
+| `queueEnd` | `(guildId)` |
