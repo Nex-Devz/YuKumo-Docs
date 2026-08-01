@@ -67,6 +67,8 @@ class YuKumo {
 | `storageAdapter` | `StorageAdapter` | `MemoryStorage` | Custom storage backend |
 | `plugins` | `PluginDef[]` | `[]` | Plugin instances to register |
 | `defaultNodeSelector` | `NodeSelector` | `LeastUsedSelector` | Default node selection strategy |
+| `logger` | `Logger \| LogLevel` | `NoopLogger` | Logger instance or minimum log level threshold (`"debug" \| "info" \| "warn" \| "error" \| "silent"`) |
+| `searchCache` | `SearchCache \| CacheOptions` | `SearchCache` | Custom `SearchCache` instance or cache configuration options (`maxSize`, `ttl`) |
 
 ### NodeConfig
 
@@ -412,6 +414,68 @@ const yukumo = new YuKumo({
   nodes: [...],
   storageAdapter: new RedisStorage({ url: "redis://localhost:6379" }),
 });
+```
+
+## Logging
+
+YuKumo includes a pluggable logging subsystem with level filtering.
+
+### Logger Interface
+
+```ts
+interface Logger {
+  debug(message: string, ...args: unknown[]): void;
+  info(message: string, ...args: unknown[]): void;
+  warn(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
+}
+
+type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
+```
+
+### Loggers & Helper Functions
+
+| Symbol | Description |
+|--------|-------------|
+| `ConsoleLogger` | Built-in logger outputting formatted logs to standard `console` |
+| `NoopLogger` | Silent logger that discards all log messages (default) |
+| `levelFilteredLogger(inner: Logger, level: LogLevel)` | Helper function wrapping a logger to drop messages below the specified threshold |
+
+```ts
+import { YuKumo, ConsoleLogger, levelFilteredLogger } from "yukumo";
+
+const yukumo = new YuKumo({
+  nodes: [...],
+  logger: levelFilteredLogger(new ConsoleLogger(), "info"),
+});
+```
+
+## Search & Caching
+
+### SearchCache
+
+A high-performance in-memory LRU cache for search results with TTL support.
+
+```ts
+interface CacheOptions {
+  /** Maximum number of entries to keep in cache (default: 100) */
+  maxSize?: number;
+  /** Time to live in milliseconds (default: 3600000 / 1 hour) */
+  ttl?: number;
+}
+
+class SearchCache {
+  constructor(options?: CacheOptions);
+  get<T extends SearchResult | LavaSearchResult>(key: string): T | null;
+  set(key: string, data: SearchResult | LavaSearchResult): void;
+  clear(): void;
+}
+```
+
+```ts
+import { SearchCache } from "yukumo";
+
+const cache = new SearchCache({ maxSize: 500, ttl: 1800000 }); // 30 mins
 ```
 
 ## Framework Adapters

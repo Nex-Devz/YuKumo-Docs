@@ -87,7 +87,10 @@ This connects all Lavalink nodes, starts plugins, and prepares the player system
 
 YuKumo needs voice state data from Discord to establish connections. You can either use an adapter (recommended) or forward events manually.
 
-### Option A: Use DiscordJSAdapter (recommended)
+### Option A: Use Framework Adapters (recommended)
+
+<Tabs items={['discord.js', 'Eris', 'Oceanic.js', 'Seyfert', 'Davey']}>
+  <Tab value="discord.js">
 
 ```ts
 import { YuKumo, DiscordJSAdapter } from "yukumo";
@@ -95,6 +98,49 @@ import { YuKumo, DiscordJSAdapter } from "yukumo";
 const yukumo = new YuKumo({ nodes: [...] });
 const adapter = new DiscordJSAdapter(discordClient, yukumo);
 ```
+
+  </Tab>
+  <Tab value="Eris">
+
+```ts
+import { YuKumo, ErisAdapter } from "yukumo";
+
+const yukumo = new YuKumo({ nodes: [...] });
+const adapter = new ErisAdapter(erisClient, yukumo);
+```
+
+  </Tab>
+  <Tab value="Oceanic.js">
+
+```ts
+import { YuKumo, OceanicAdapter } from "yukumo";
+
+const yukumo = new YuKumo({ nodes: [...] });
+const adapter = new OceanicAdapter(oceanicClient, yukumo);
+```
+
+  </Tab>
+  <Tab value="Seyfert">
+
+```ts
+import { YuKumo, SeyfertAdapter } from "yukumo";
+
+const yukumo = new YuKumo({ nodes: [...] });
+const adapter = new SeyfertAdapter(seyfertClient, yukumo);
+```
+
+  </Tab>
+  <Tab value="Davey">
+
+```ts
+import { YuKumo, DaveyAdapter } from "yukumo";
+
+const yukumo = new YuKumo({ nodes: [...] });
+const adapter = new DaveyAdapter(daveyClient, yukumo);
+```
+
+  </Tab>
+</Tabs>
 
 The adapter handles all voice state and server update forwarding automatically.
 
