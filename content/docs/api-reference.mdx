@@ -218,8 +218,11 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `peek()` | `T \| null` | View without advancing |
 | `clear()` | `void` | Remove all |
 | `shuffle()` | `void` | Fisher-Yates shuffle |
+| `swap(indexA, indexB)` | `boolean` | Swap two track positions |
+| `skipTo(index)` | `T \| null` | Jump to queue index |
 | `remove(index)` | `T \| null` | Remove at index |
 | `removeRange(start, end)` | `T[]` | Remove range |
+| `clearExceptCurrent()` | `void` | Clear queue except current track |
 | `setRepeatMode(mode)` | `void` | `"none" \| "track" \| "queue"` |
 | `toArray()` | `T[]` | All tracks as array |
 
@@ -330,7 +333,10 @@ One-line preset methods on `FilterChain` (also available on `player.filters`):
 | `setBassBoost(level)` | Bass boost EQ preset (`"low"`, `"medium"`, `"high"`, `"extreme"`) |
 | `setNightcore(enabled?)` | Nightcore timescale (speed 1.25, pitch 1.25) |
 | `setVaporwave(enabled?)` | Vaporwave timescale (speed 0.85, pitch 0.8) |
-| `set8D(enabled?)` | 8D audio rotation (0.2 Hz panning) |
+| `setSlowedReverb(enabled?)` | Slowed + Reverb preset (speed 0.85, pitch 0.85, lowPass filter) |
+| `set8D(enabled?)` / `set3DAudio(enabled?)` | 8D / 3D audio spatial rotation (0.2 Hz panning) |
+| `setPitchShift(semitones)` | Shifts audio pitch by semitones (+/- 12 semitones) |
+| `setVoiceIsolation(enabled?)` | Vocal frequency boost EQ curve |
 | `setKaraoke(enabled?)` | Karaoke vocal removal filter |
 | `setPop(enabled?)` | Pop EQ preset |
 | `setSoft(enabled?)` | Soft EQ preset |
@@ -338,6 +344,8 @@ One-line preset methods on `FilterChain` (also available on `player.filters`):
 | `setRock(enabled?)` | Rock EQ preset |
 | `setClassical(enabled?)` | Classical EQ preset |
 | `setElectronic(enabled?)` | Electronic EQ preset |
+| `registerPreset(name, payload)` | Registers a custom global named preset |
+| `applyPreset(name)` | Applies a registered custom preset |
 
 ```ts
 // Apply bass boost
