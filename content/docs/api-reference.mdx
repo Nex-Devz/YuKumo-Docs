@@ -67,6 +67,8 @@ class YuKumo {
 | `storageAdapter` | `StorageAdapter` | `MemoryStorage` | Custom storage backend |
 | `plugins` | `PluginDef[]` | `[]` | Plugin instances to register |
 | `defaultNodeSelector` | `NodeSelector` | `LeastUsedSelector` | Default node selection strategy |
+| `send` | `(guildId, payload) => void` | — | Raw Discord gateway payload dispatcher for `op: 4` voice state updates |
+| `onDisconnect` | `{ destroyPlayer?: boolean; autoReconnect?: boolean }` | `{ destroyPlayer: true }` | Behavior when bot is disconnected from voice channel |
 | `logger` | `Logger \| LogLevel` | `NoopLogger` | Logger instance or minimum log level threshold (`"debug" \| "info" \| "warn" \| "error" \| "silent"`) |
 | `searchCache` | `SearchCache \| CacheOptions` | `SearchCache` | Custom `SearchCache` instance or cache configuration options (`maxSize`, `ttl`) |
 
@@ -169,6 +171,8 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `stop()` | `Promise<void>` | Stop playback |
 | `setVolume(vol)` | `Promise<void>` | Change volume (0-1000) |
 | `seek(position)` | `Promise<void>` | Seek to position (ms) |
+| `waitForVoiceReady(timeoutMs?)` | `Promise<void>` | Wait for Discord voice credentials to be ready before playing (default: 15s) |
+| `resync()` | `Promise<void>` | Re-send full player state & voice credentials to node after reconnect |
 | `destroy()` | `Promise<void>` | Destroy player |
 | `setVoiceChannel(id)` | `Promise<void>` | Move bot to channel |
 | `setTextChannel(id)` | `void` | Update text channel |
