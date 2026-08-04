@@ -71,6 +71,15 @@ class YuKumo {
 | `onDisconnect` | `{ destroyPlayer?: boolean; autoReconnect?: boolean }` | `{ destroyPlayer: true }` | Behavior when bot is disconnected from voice channel |
 | `logger` | `Logger \| LogLevel` | `NoopLogger` | Logger instance or minimum log level threshold (`"debug" \| "info" \| "warn" \| "error" \| "silent"`) |
 | `searchCache` | `SearchCache \| CacheOptions` | `SearchCache` | Custom `SearchCache` instance or cache configuration options (`maxSize`, `ttl`) |
+| `linksAllowed` | `boolean` | `true` | When `false`, URL queries are rejected with an `error` load result |
+| `linksWhitelist` | `(string \| RegExp)[]` | `[]` | When non-empty, URL queries must match at least one entry |
+| `linksBlacklist` | `(string \| RegExp)[]` | `[]` | URL queries matching any entry are rejected (wins over whitelist) |
+| `httpHeaders` | `Record<string, string>` | — | Custom headers for every node's REST requests + WS handshake |
+| `queueOptions` | `{ persist?: boolean }` | `{ persist: false }` | Auto-persist queues to the storage adapter and restore them on `createPlayer()` |
+| `playerDefaults` | `{ maxErrorsPerTime?, minAutoPlayMs?, queueEmptyDestroyMs? }` | see below | Per-player protection defaults applied on create |
+| `playerClass` | `new (options) => Player` | `Player` | Custom `Player` subclass instantiated by the manager |
+
+`playerDefaults` defaults: `maxErrorsPerTime: { threshold: 35000, maxAmount: 3 }` (destroy after >3 track errors within 35s; `null` disables), `minAutoPlayMs: 10000` (block autoplay after error-ends of tracks that played under 10s), `queueEmptyDestroyMs: 0` (disabled).
 
 ### NodeConfig
 
@@ -86,6 +95,11 @@ class YuKumo {
 | `maxRetries` | `number` | `5` | Connection retry limit |
 | `retryDelay` | `number` | `1000` | Initial retry delay (ms) |
 | `retryDelayMax` | `number` | `30000` | Maximum retry delay (ms) |
+| `connectTimeout` | `number` | `15000` | WS handshake timeout (ms) |
+| `httpHeaders` | `Record<string, string>` | — | Custom headers for this node (overrides manager-level `httpHeaders`) |
+| `enableHeartbeat` | `boolean` | `true` | WS ping/pong dead-connection detection |
+| `heartbeatIntervalMs` | `number` | `30000` | Interval between heartbeat pings |
+| `heartbeatTimeoutMs` | `number` | `10000` | Pong wait before the socket is declared dead and terminated (auto-reconnects) |
 
 ## Node
 
@@ -160,25 +174,38 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `paused` | `boolean` | Whether paused |
 | `currentTrack` | `TrackData \| null` | Current track |
 | `voiceState` | `InternalVoiceState \| null` | Voice connection state |
+| `position` | `number` | Playback position (ms) — interpolated between server updates, clamped to track length |
+| `ping` | `{ ws: number \| null; lavalink: number \| null }` | Node WS ping + per-player Lavalink ping |
+| `maxErrorsPerTime` | `{ threshold, maxAmount } \| null` | Sliding-window error-rate protection |
+| `minAutoPlayMs` | `number` | Min play time before error-triggered autoplay runs |
+| `queueEmptyDestroyMs` | `number` | Destroy this many ms after queue end (`0` disables) |
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `play(track?)` | `Promise<void>` | Begin playback |
-| `playTrack(track)` | `Promise<void>` | Play specific track |
+| `play(track?, options?)` | `Promise<void>` | Begin playback. `options`: `{ position?, endTime?, noReplace?, paused?, volume? }` |
+| `playTrack(track, options?)` | `Promise<void>` | Play specific track (same `PlayOptions`) |
+| `skip()` | `Promise<TTrack \| null>` | Skip — runs the same path as a natural track end (autoplay/repeat/queueEnd all fire) |
 | `playPrevious()` | `Promise<TTrack \| null>` | Play previous track from history |
-| `pause()` | `Promise<void>` | Pause playback |
-| `resume()` | `Promise<void>` | Resume playback |
+| `pause()` / `resume()` | `Promise<void>` | Idempotent pause/resume |
 | `stop()` | `Promise<void>` | Stop playback |
-| `setVolume(vol)` | `Promise<void>` | Change volume (0-1000) |
-| `seek(position)` | `Promise<void>` | Seek to position (ms) |
+| `setVolume(vol)` | `Promise<void>` | Change volume (0-1000); remembered while the node is down |
+| `seek(position)` | `Promise<void>` | Seek (ms), clamped to `[0, track length]` |
 | `waitForVoiceReady(timeoutMs?)` | `Promise<void>` | Wait for Discord voice credentials to be ready before playing (default: 15s) |
 | `resync()` | `Promise<void>` | Re-send full player state & voice credentials to node after reconnect |
-| `destroy()` | `Promise<void>` | Destroy player |
+| `destroy(reason?)` | `Promise<void>` | Destroy player; `reason` (see `DestroyReasons`) is emitted with `playerDestroy` |
 | `setVoiceChannel(id)` | `Promise<void>` | Move bot to channel |
 | `setTextChannel(id)` | `void` | Update text channel |
 | `search(query, source?)` | `Promise<SearchResult>` | Shortcut for yukumo.search |
 | `setLoop(mode)` | `this` | Shortcut for queue.setRepeatMode |
 | `getLyrics(track?)` | `Promise<any>` | Fetch lyrics (requires Lyrics plugin) |
+| `setSponsorBlock(categories?)` | `Promise<void>` | Set SponsorBlock auto-skip categories (SponsorBlock plugin) |
+| `getSponsorBlock()` / `deleteSponsorBlock()` | `Promise<string[]>` / `Promise<void>` | Read / clear SponsorBlock categories |
+| `getCurrentLyrics(skipTrackSource?)` | `Promise<unknown>` | Lyrics of the current track (LavaLyrics plugin) |
+| `subscribeLyrics()` / `unsubscribeLyrics()` | `Promise<void>` | Toggle live `lyricsLine` events (LavaLyrics plugin) |
+| `moveNode(nodeId?)` | `Promise<Node>` | Move to a node — auto-picks the least-loaded connected node when omitted |
+| `enableQueuePersistence()` | `void` | Auto-save the queue to the storage adapter on every change |
+| `restoreQueue()` | `Promise<boolean>` | Restore a persisted queue |
+| `toJSON()` | `PlayerJson` | Full serializable player snapshot (queue, filters, voice, playback) |
 
 ### PlayerManager
 
@@ -187,10 +214,10 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `create(options)` | `Promise<Player>` | Create a player |
 | `get(guildId)` | `Player \| undefined` | Get by guild ID |
 | `has(guildId)` | `boolean` | Check if exists |
-| `destroy(guildId)` | `Promise<boolean>` | Destroy a player |
+| `destroy(guildId, reason?)` | `Promise<boolean>` | Destroy a player |
 | `getAll()` | `Player[]` | All players |
 | `getByNode(nodeId)` | `Player[]` | Players on a node |
-| `destroyAll()` | `Promise<void>` | Destroy all |
+| `destroyAll(reason?)` | `Promise<void>` | Destroy all |
 | `size()` | `number` | Active player count |
 
 ### YuKumoPlayerCreateOptions
@@ -224,7 +251,14 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `removeRange(start, end)` | `T[]` | Remove range |
 | `clearExceptCurrent()` | `void` | Clear queue except current track |
 | `setRepeatMode(mode)` | `void` | `"none" \| "track" \| "queue"` |
+| `sortBy(key, order?)` | `this` | Sort upcoming tracks by `"duration" \| "title" \| "author"` or a comparator, `"asc" \| "desc"` |
+| `removeTrack(query)` | `T[]` | Remove by track object / array / predicate (matches identity, then `encoded`); never removes the playing track |
+| `export()` / `import(state)` | `SerializedQueue` / `void` | Serialize / restore full queue state |
 | `toArray()` | `T[]` | All tracks as array |
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `onChanged` | `() => void` | Hook invoked after every queue mutation — drives queue persistence, usable as a change watcher |
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -344,6 +378,7 @@ One-line preset methods on `FilterChain` (also available on `player.filters`):
 | `setRock(enabled?)` | Rock EQ preset |
 | `setClassical(enabled?)` | Classical EQ preset |
 | `setElectronic(enabled?)` | Electronic EQ preset |
+| `setAudioOutput(output)` | Channel-mix routing: `"mono"`, `"stereo"` (reset), `"left"`, `"right"` (presets exported as `AudioOutputs`) |
 | `registerPreset(name, payload)` | Registers a custom global named preset |
 | `applyPreset(name)` | Applies a registered custom preset |
 
@@ -356,6 +391,10 @@ player.filters.setNightcore();
 
 // Disable a preset
 player.filters.setNightcore(false);
+
+// Route audio to mono / left / right, back to stereo to reset
+player.filters.setAudioOutput("mono");
+player.filters.setAudioOutput("stereo");
 ```
 
 ## Voice
@@ -625,6 +664,23 @@ try {
 | `voiceReady` | `(guildId)` | Voice connected |
 | `voiceDisconnected` | `(guildId)` | Voice disconnected |
 | `voiceReconnecting` | `(guildId)` | Voice reconnecting |
+| `segmentsLoaded` | `(guildId, segments)` | SponsorBlock segments loaded for the current track |
+| `segmentSkipped` | `(guildId, segment)` | SponsorBlock segment auto-skipped |
+| `chaptersLoaded` | `(guildId, chapters)` | SponsorBlock chapters loaded |
+| `chapterStarted` | `(guildId, chapter)` | SponsorBlock chapter started |
+| `lyricsFound` | `(guildId, lyrics)` | LavaLyrics: lyrics found |
+| `lyricsNotFound` | `(guildId)` | LavaLyrics: no lyrics found |
+| `lyricsLine` | `(guildId, line)` | LavaLyrics: live lyrics line |
+
+`playerDestroy` now emits `(guildId, reason?)` — reasons come from the `DestroyReasons` export:
+
+```ts
+import { DestroyReasons } from "yukumo";
+// QueueEmpty · NodeDestroy · NodeDeleted · LavalinkNoVoice · NodeReconnectFail
+// Disconnected · PlayerReconnectFail · ChannelDeleted · DisconnectAllNodes
+// TrackErrorMaxTracksErroredPerTime · TrackStuckMaxTracksErroredPerTime
+// EmptyVoiceChannel · ManualDestroy
+```
 
 ### Player-level (player.events)
 

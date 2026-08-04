@@ -1,0 +1,157 @@
+---
+title: Advanced Features
+description: Queue persistence, SponsorBlock, live lyrics, player protections, link policy, and dead-connection detection — everything added in YuKumo 1.6.
+---
+
+## Queue Persistence
+
+Persist every queue to your configured `StorageAdapter` (Memory, Redis, or custom) and restore it automatically after a restart. Saves are microtask-coalesced, so bulk operations (adding a 500-track playlist) cost a single write.
+
+```ts
+const yukumo = new YuKumo({
+  nodes: [...],
+  storageAdapter: new RedisStorage({ url: "redis://localhost:6379" }),
+  queueOptions: { persist: true },
+});
+
+// Later — after a restart — createPlayer() restores the saved queue:
+const player = await yukumo.createPlayer({ guildId, voiceChannelId });
+console.log(player.queue.size); // tracks are back
+```
+
+Lifecycle rules:
+
+- Every queue mutation (add, remove, advance, shuffle, import…) auto-saves.
+- A **normal destroy** (skip to empty, manual destroy, channel deleted) deletes the stored queue.
+- A **shutdown** (`yukumo.destroy()`, reason `DisconnectAllNodes`) keeps it on disk for the next boot.
+
+Manual control is available on any player: `player.enableQueuePersistence()` and `await player.restoreQueue()`. For custom change-watching, set `queue.onChanged = () => { ... }`.
+
+## SponsorBlock Integration
+
+Server-side segment skipping via the [Lavalink SponsorBlock plugin](https://github.com/topi314/Sponsorblock-Plugin). The node skips sponsor segments itself — no client timers needed.
+
+```ts
+await player.setSponsorBlock(["sponsor", "selfpromo", "intro", "outro"]);
+
+player.on("segmentSkipped", (guildId, segment) => {
+  console.log("Skipped a sponsor segment", segment);
+});
+player.on("chapterStarted", (guildId, chapter) => { ... });
+
+const categories = await player.getSponsorBlock();
+await player.deleteSponsorBlock(); // clear categories
+```
+
+Events (player-level and global): `segmentsLoaded`, `segmentSkipped`, `chaptersLoaded`, `chapterStarted`.
+
+## Live Lyrics
+
+Powered by the [LavaLyrics plugin](https://github.com/topi314/LavaLyrics). Subscribe once per player and receive timestamped lines as the track plays:
+
+```ts
+await player.subscribeLyrics();
+
+player.on("lyricsLine", (guildId, line) => {
+  channel.send(String(line.line));
+});
+player.on("lyricsNotFound", (guildId) => channel.send("No lyrics found"));
+
+// One-shot fetch of the current track's lyrics:
+const lyrics = await player.getCurrentLyrics();
+
+await player.unsubscribeLyrics();
+```
+
+No plugin on your node? `player.getSyncedLyrics()` still works — it fetches synced lyrics client-side from LRCLIB.
+
+## Player Protections
+
+Three guards keep a broken source or dead stream from wrecking a player. Defaults are set globally via `ManagerOptions.playerDefaults` and can be tuned per player:
+
+```ts
+const yukumo = new YuKumo({
+  nodes: [...],
+  playerDefaults: {
+    maxErrorsPerTime: { threshold: 35000, maxAmount: 3 }, // default
+    minAutoPlayMs: 10000,                                  // default
+    queueEmptyDestroyMs: 5 * 60_000,                       // destroy 5min after queue end
+  },
+});
+```
+
+| Guard | Behavior |
+|-------|----------|
+| `maxErrorsPerTime` | More than `maxAmount` track errors/stucks within `threshold` ms → player destroyed with `TrackErrorMaxTracksErroredPerTime` / `TrackStuckMaxTracksErroredPerTime`. Set `null` to disable. |
+| `minAutoPlayMs` | After an **error** track end, autoplay only runs if the track played at least this long — stops recommendation spam from a broken source. User skips are unaffected. |
+| `queueEmptyDestroyMs` | Destroys the player N ms after `queueEnd` (reason `QueueEmpty`). Cancelled when playback resumes; `stayInVc` (24/7 mode) overrides it. |
+
+Every destroy carries a reason:
+
+```ts
+import { DestroyReasons } from "yukumo";
+
+yukumo.on("playerDestroy", (guildId, reason) => {
+  if (reason === DestroyReasons.QueueEmpty) { ... }
+});
+```
+
+## Link Policy
+
+Gate URL queries globally — plain-text searches are never affected:
+
+```ts
+const yukumo = new YuKumo({
+  nodes: [...],
+  linksAllowed: true,                       // false rejects every URL
+  linksWhitelist: ["youtube.com", /spotify/],
+  linksBlacklist: ["grabify", /ip-?logger/i], // blacklist wins over whitelist
+});
+
+const res = await yukumo.search("https://grabify.link/x");
+// res.loadType === "error", res.exception.message explains why
+```
+
+## Dead-Connection Detection
+
+Each node WebSocket sends a heartbeat ping every 30s and expects a pong within 10s. A half-open TCP connection (node crashed, network dropped) is terminated and goes through the normal reconnect + player-failover path instead of looking "connected" forever.
+
+```ts
+{
+  host: "localhost", port: 2333, password: "...",
+  enableHeartbeat: true,      // default
+  heartbeatIntervalMs: 30000, // default
+  heartbeatTimeoutMs: 10000,  // default
+}
+```
+
+`node.ws.isAlive` reports the last heartbeat result.
+
+## Play Options
+
+`play()` and `playTrack()` accept the full Lavalink play payload:
+
+```ts
+await player.play(track, {
+  position: 30_000,  // start at 0:30
+  endTime: 90_000,   // stop at 1:30
+  noReplace: true,   // ignore if something is already playing
+  paused: false,
+  volume: 80,
+});
+```
+
+## Extending the Player
+
+Ship your own player subclass — the manager instantiates it everywhere:
+
+```ts
+class MyPlayer extends Player {
+  public announce(msg: string) { ... }
+}
+
+const yukumo = new YuKumo({ nodes: [...], playerClass: MyPlayer });
+const player = await yukumo.createPlayer({ guildId, voiceChannelId }); // MyPlayer
+```
+
+More 1.6 additions: `player.moveNode()` (least-loaded auto-pick), `player.toJSON()`, `player.ping` (`{ ws, lavalink }`), `queue.sortBy()`, `queue.removeTrack()`, `filters.setAudioOutput()`, `httpHeaders` (global + per node), and `parseLavalinkConnUrl("lavalink://name:pass@host:2333")`.

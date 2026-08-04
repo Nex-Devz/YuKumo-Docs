@@ -2,6 +2,7 @@
   "pages": [
     "index",
     "getting-started",
+    "advanced-features",
     "migration",
     "node-deployment",
     "plugin-development",
