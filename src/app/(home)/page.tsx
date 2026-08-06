@@ -7,19 +7,23 @@ import {
   Database,
   Gauge,
   GitFork,
+  History,
   ListMusic,
   Package,
+  Plug,
   Puzzle,
+  RefreshCw,
   Rocket,
   Server,
   ShieldCheck,
+  Shuffle,
   Sparkles,
   Terminal,
 } from "lucide-react";
 import Link from "next/link";
 
 const badges = [
-  { label: "npm v1.6.0", color: "#7c3aed" },
+  { label: "npm v1.7.0", color: "#7c3aed" },
   { label: "60 KB minzip", color: "#6366f1" },
   { label: "MIT License", color: "#ec4899" },
   { label: "TypeScript Strict", color: "#2563eb" },
@@ -28,18 +32,25 @@ const badges = [
 
 const features = [
   {
-    icon: Gauge,
+    icon: RefreshCw,
     accent: "text-violet-500",
+    title: "Restart-Proof Sessions",
+    description:
+      "Session resuming + player snapshots: redeploy your bot and the music keeps playing. Live players are adopted silently with zero audio gap.",
+  },
+  {
+    icon: Gauge,
+    accent: "text-blue-500",
     title: "High Performance Engine",
     description:
       "Player creation in ~1.8ms. Queue operations at ~9.3M ops/sec. Event dispatch at ~663k ops/sec.",
   },
   {
-    icon: ShieldCheck,
-    accent: "text-blue-500",
-    title: "100% Strict Type Safety",
+    icon: Shuffle,
+    accent: "text-fuchsia-500",
+    title: "Source-Aware Autoplay",
     description:
-      "Full TypeScript support with strict typings across nodes, players, search, filters, and events.",
+      "Per-source recommendations — YouTube RD mixes, Spotify sprec, Deezer, Yandex, SoundCloud — with played-track dedupe to prevent loops.",
   },
   {
     icon: Database,
@@ -63,6 +74,20 @@ const features = [
       "WS heartbeats detect half-open dead nodes, error-rate guards destroy runaway players, and every destroy carries a reason.",
   },
   {
+    icon: Plug,
+    accent: "text-orange-500",
+    title: "NodeLink Ready",
+    description:
+      "Auto-detected NodeLink nodes: gapless preload, fading curves, mixer layers, voice receive, chapters, and built-in lyrics.",
+  },
+  {
+    icon: ShieldCheck,
+    accent: "text-sky-500",
+    title: "100% Strict Type Safety",
+    description:
+      "Full TypeScript support with strict typings across nodes, players, search, filters, and events.",
+  },
+  {
     icon: Package,
     accent: "text-amber-500",
     title: "Minimal Dependencies",
@@ -81,7 +106,7 @@ const features = [
     accent: "text-indigo-500",
     title: "Built-in Queue Manager",
     description:
-      "Repeat modes, Fisher-Yates shuffle, history navigation, sortBy, removeTrack, and index range manipulation.",
+      "Repeat modes, Fisher-Yates shuffle, history navigation, sortBy, removeTrack, unique, lock, and range manipulation.",
   },
   {
     icon: Puzzle,
@@ -110,6 +135,7 @@ const frameworks = [
 
 const heroSnippet = `const yukumo = new YuKumo({
   nodes: [{ host: "localhost", port: 2333, password: "..." }],
+  resuming: { enabled: true },   // audio survives bot restarts
   queueOptions: { persist: true },
 });
 
@@ -133,11 +159,11 @@ export default function HomePage() {
         />
 
         <Link
-          href="/docs/advanced-features"
+          href="/docs/changelog/v1-7-0"
           className="inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/50 px-3 py-1 text-xs text-fd-muted-foreground backdrop-blur transition-colors hover:border-violet-500/40 hover:text-fd-foreground"
         >
           <Sparkles className="size-3 text-violet-500" />
-          New in v1.6 — queue persistence, SponsorBlock, live lyrics
+          New in v1.7 — restart-proof sessions, source-aware autoplay, NodeLink
           <ArrowRight className="size-3" />
         </Link>
 
@@ -270,7 +296,16 @@ export default function HomePage() {
 
       {/* Docs CTA */}
       <section className="mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Everything you need to ship
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-fd-muted-foreground">
+            Guides, references, and release notes — kept in lockstep with every
+            version.
+          </p>
+        </div>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/docs/getting-started"
             className="group rounded-lg border border-fd-border bg-fd-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-fd-ring hover:shadow-lg hover:shadow-black/5"
@@ -279,6 +314,16 @@ export default function HomePage() {
             <h3 className="mt-3 font-semibold">Getting Started</h3>
             <p className="mt-1.5 text-sm text-fd-muted-foreground">
               Build a music bot with YuKumo in a few minutes.
+            </p>
+          </Link>
+          <Link
+            href="/docs/session-resuming"
+            className="group rounded-lg border border-fd-border bg-fd-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-fd-ring hover:shadow-lg hover:shadow-black/5"
+          >
+            <RefreshCw className="size-5 text-fuchsia-500 opacity-80 transition-opacity group-hover:opacity-100" />
+            <h3 className="mt-3 font-semibold">Session Resuming</h3>
+            <p className="mt-1.5 text-sm text-fd-muted-foreground">
+              Keep audio playing through restarts and redeploys.
             </p>
           </Link>
           <Link
@@ -309,6 +354,16 @@ export default function HomePage() {
             <h3 className="mt-3 font-semibold">Node Deployment</h3>
             <p className="mt-1.5 text-sm text-fd-muted-foreground">
               Setup Lavalink v4 nodes for production.
+            </p>
+          </Link>
+          <Link
+            href="/docs/changelog"
+            className="group rounded-lg border border-fd-border bg-fd-card/40 p-5 transition-all hover:-translate-y-0.5 hover:border-fd-ring hover:shadow-lg hover:shadow-black/5"
+          >
+            <History className="size-5 text-amber-500 opacity-80 transition-opacity group-hover:opacity-100" />
+            <h3 className="mt-3 font-semibold">Changelog</h3>
+            <p className="mt-1.5 text-sm text-fd-muted-foreground">
+              Release-by-release notes — v1.7.0, v1.6.0, and earlier.
             </p>
           </Link>
         </div>
