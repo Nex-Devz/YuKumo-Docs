@@ -3,10 +3,14 @@
     "index",
     "getting-started",
     "advanced-features",
+    "session-resuming",
+    "nodelink",
+    "autoplay-and-utilities",
     "migration",
     "node-deployment",
     "plugin-development",
     "api-reference",
-    "faq"
+    "faq",
+    "changelog"
   ]
 }

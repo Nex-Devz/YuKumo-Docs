@@ -1,0 +1,125 @@
+---
+title: Autoplay & Utilities
+description: Source-aware autoplay for every music source, plus the 1.7 DX utilities — waitUntilPlaying, queue lock, findPlayers, maintenance mode, TTL cache, and broadcast.
+---
+
+## Source-Aware Autoplay
+
+Autoplay is no longer YouTube-only. When the queue ends, YuKumo picks a recommendation strategy based on the last track's `sourceName`:
+
+| Source | Strategy |
+|--------|----------|
+| YouTube / YouTube Music | `RD` radio mix (`watch?v=ID&list=RDID`) |
+| Spotify | `sprec:seed_tracks=ID` (LavaSrc) |
+| Deezer | `dzrec:ID` |
+| Yandex Music | `ymrec:ID` |
+| SoundCloud | `<track-url>/recommended` |
+| Anything else / fallback | `scsearch:` / `amsearch:` / `ytsearch:` on artist + title |
+
+Failed strategies (unsupported prefix on your node) fall through to the next one. Recently played tracks (history + current) are excluded — no repeat loops.
+
+```ts
+// Per player
+player.setAutoplay(true);
+
+// For every created player
+const yukumo = new YuKumo({ ..., playerDefaults: { autoplay: true } });
+
+// Custom fetcher still wins over the built-in strategies
+player.setAutoplay(true, async (lastTrack) => myRecommender(lastTrack));
+
+// Direct access to the built-in engine
+const next = await player.resolveAutoplayTrack(lastTrack);
+
+yukumo.on("autoplayTrackAdded", (guildId, track) => { ... });
+```
+
+## waitUntilPlaying
+
+Update embeds/buttons when audio *actually* starts — no manual `trackStart` listener:
+
+```ts
+await player.play(track);
+await player.waitUntilPlaying(); // resolves on TrackStartEvent, default timeout 15000ms
+```
+
+Resolves immediately if already playing; rejects on destroy or timeout.
+
+## isVoiceReady
+
+```ts
+if (!player.isVoiceReady) {
+  await player.waitForVoiceReady();
+}
+```
+
+True when voice credentials are held and the node is connected.
+
+## Queue Lock
+
+Serialize multi-step queue edits against concurrent commands:
+
+```ts
+await player.queue.lock(async () => {
+  player.queue.add(tracks);
+  player.queue.shuffle();
+});
+
+player.queue.isLocked; // true inside a section
+```
+
+Sections run one at a time in call order. Errors propagate to the caller but never break the chain.
+
+## queue.unique()
+
+```ts
+const removed = player.queue.unique();               // dedupe by encoded → info.identifier
+player.queue.unique((t) => t.info.title.toLowerCase()); // custom key
+```
+
+Keeps the first occurrence, never removes the playing track, fires `onChanged` (persistence-aware).
+
+## findPlayers
+
+```ts
+yukumo.findPlayers({ node: "india-01", status: "playing" });
+yukumo.findPlayers({ status: ["playing", "paused"], autoplay: true });
+yukumo.findPlayers({ filter: (p) => p.queue.size > 10 });
+yukumo.players.findOne({ voiceChannelId });
+```
+
+Criteria are AND-combined: `node`, `status` (single or array), `voiceChannelId`, `textChannelId`, `autoplay`, `stayInVc`, `playing`, `filter`.
+
+## Node Maintenance Mode
+
+Restart or update a Lavalink node without interrupting users:
+
+```ts
+node.setMaintenance(true); // no NEW players assigned; existing ones keep playing
+await node.drain(600_000); // resolves once playerCount hits 0 (timeout 10min here; 0 = forever)
+// safe to restart the node now
+node.setMaintenance(false);
+```
+
+All built-in selectors skip maintenance nodes. `node.maintenance` getter reports state.
+
+## Temporary Player Data (TTL cache)
+
+```ts
+player.cache.set("vote", true, 60_000); // auto-expires after 60s
+player.cache.get("vote");               // undefined once expired
+player.data.set("permanent", value);    // plain Map for permanent data
+```
+
+Lazy expiry — no timers held, nothing keeps the process alive. Cleared on player destroy. `TTLCache` is exported for standalone use.
+
+## broadcast
+
+Apply an operation to all active players (or a filtered subset) concurrently:
+
+```ts
+await yukumo.broadcast((player) => player.setVolume(80));
+await yukumo.broadcast((p) => p.pause(), { status: "playing" });
+```
+
+Runs via `Promise.allSettled` — one failing player never blocks the rest; results return in player order.

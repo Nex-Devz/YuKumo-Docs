@@ -1,0 +1,86 @@
+---
+title: NodeLink Support
+description: First-class support for NodeLink (PerformanC's Lavalink alternative) — auto-detection, built-in lyrics/chapters, gapless playback, fading, audio mixer, and voice receive.
+---
+
+## Detection
+
+NodeLink is auto-detected from `/v4/info` (`isNodelink: true`) on the first ready, or forced per node:
+
+```ts
+nodes: [
+  { host: "localhost", port: 2333, password: "x", name: "nl", isNodeLink: true },
+]
+
+node.isNodeLink;      // true
+player.isOnNodeLink;  // true
+```
+
+Behavioral differences YuKumo handles for you:
+
+- **No session resuming** on NodeLink — the resume handshake is skipped and player state is re-sent on reconnect ([restart recovery](/docs/session-resuming) still works via snapshots).
+- NodeLink's `SponsorBlockSegmentsLoadedEvent` / `SponsorBlockSegmentSkippedEvent` map to the existing `segmentsLoaded` / `segmentSkipped` events.
+- `yukumo.getLyrics()` / `player.getLyrics()` transparently route to NodeLink's built-in `/v4/loadlyrics` — no plugin needed.
+
+## Built-in lyrics, chapters, meaning
+
+```ts
+await player.getNodeLinkLyrics("en");  // /v4/loadlyrics — YouTube captions, Musixmatch, LRCLib, Genius
+await player.getChapters();            // /v4/loadchapters — YouTube chapter markers
+await player.getTrackMeaning();        // /v4/meaning — Wikipedia / Letras.mus.br background info
+```
+
+REST-level (per node): `rest.loadLyrics(encoded, lang?)`, `rest.loadChapters(encoded)`, `rest.getMeaning(encoded)`, `rest.getConnectionMetrics()`.
+
+## Gapless playback & fading
+
+```ts
+// Preload the next track on the node — zero-gap transition
+await player.setGaplessNext(nextTrack);
+await player.setGaplessNext(null); // clear
+
+// Fade curves: linear | exponential | logarithmic | s-curve
+await player.setFading({
+  trackStart: { duration: 2000, curve: "s-curve" },
+  trackEnd:   { duration: 3000, curve: "exponential" },
+});
+```
+
+## Audio mixer
+
+Overlay TTS or sound effects on top of playback:
+
+```ts
+const layer = await player.addMixLayer({ track: { encoded: ttsTrack.encoded }, volume: 80 });
+await player.getMixLayers();
+await player.updateMixLayer(mixId, { volume: 50 });
+await player.removeMixLayer(mixId);
+
+yukumo.on("mixStarted", (guildId, mix) => { ... });
+yukumo.on("mixEnded", (guildId, mix) => { ... });
+```
+
+## Voice receive
+
+Capture what users say in the voice channel via NodeLink's `/connection/data` WebSocket:
+
+```ts
+const receiver = player.createVoiceReceiver(); // or node.createVoiceReceiver(guildId)
+await receiver.connect();
+
+receiver.on("startSpeaking", ({ userId, guildId }) => {
+  console.log(`${userId} started speaking`);
+});
+receiver.on("endSpeaking", ({ userId, data, type }) => {
+  // data = base64 audio, type = "opus" | "pcm"
+  const audio = Buffer.from(data, "base64");
+});
+
+receiver.destroy(); // when done
+```
+
+All NodeLink-only player APIs throw `PlayerError("... requires a NodeLink node")` when called against a regular Lavalink node, so mixed pools fail loudly instead of silently.
+
+## updatePlayer extensions
+
+`rest.updatePlayer()` accepts NodeLink extensions directly: `nextTrack`, `fading`, and `track.audioTrackId` (alternate audio streams listed in `pluginInfo.audioTracks`).

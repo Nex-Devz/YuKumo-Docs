@@ -1,0 +1,75 @@
+---
+title: Session Resuming
+description: Survive bot restarts with zero audio downtime — Lavalink session resuming, full player snapshots, and automatic restore.
+---
+
+## What it does
+
+With resuming enabled, YuKumo persists two things to your `StorageAdapter`:
+
+1. **Lavalink session IDs** (`yukumo:session:<nodeId>`) — on the next boot the node WebSocket reconnects with the `Session-Id` header, Lavalink hands the old session back, and **audio keeps playing the whole time** (the node plays on for `timeout` seconds while your bot is down).
+2. **Full player snapshots** (`yukumo:player:<guildId>`) — queue, position, volume, filters, repeat mode, autoplay, and 24/7 flags. Refreshed on track start, every `playerUpdate` (~5s), queue mutations, and playback setters.
+
+On `init()`, YuKumo automatically calls `restorePlayers()`:
+
+- **Session resumed & track still live** → the server-side player is *adopted silently*. No play request is sent, no audio gap, stale voice credentials are never pushed.
+- **Session expired (or NodeLink)** → the bot rejoins the voice channel and replays the track at the saved position (paused state and volume included).
+
+## Setup
+
+```ts
+import { YuKumo, RedisStorage } from "yukumo";
+
+const yukumo = new YuKumo({
+  nodes: [{ host: "localhost", port: 2333, password: "youshallnotpass", name: "main" }],
+  // Persistent storage is required — MemoryStorage dies with the process
+  storageAdapter: new RedisStorage({ url: "redis://localhost:6379" }),
+  resuming: {
+    enabled: true,        // turn everything on
+    timeout: 120,         // seconds Lavalink keeps playing after the WS drops (default 60)
+    persistPlayers: true, // player snapshots + auto-restore (default true when enabled)
+  },
+  send: (guildId, payload) => client.guilds.cache.get(guildId)?.shard.send(payload),
+});
+
+await yukumo.init(); // reclaims sessions + restores players automatically
+```
+
+React to restores:
+
+```ts
+yukumo.on("playerRestored", (guildId, resumedLive) => {
+  if (resumedLive) {
+    console.log(`${guildId}: session resumed — audio never stopped`);
+  } else {
+    console.log(`${guildId}: rejoined and replayed at the saved position`);
+  }
+});
+```
+
+## Per-node control
+
+```ts
+nodes: [
+  { host: "a", port: 2333, password: "x", resuming: true, resumeTimeout: 300 },
+  { host: "b", port: 2333, password: "x", resuming: false }, // opt this node out
+]
+```
+
+`NodeConfig.resuming` no longer requires the legacy `resumeKey` — the `Session-Id` header is sent whenever resuming is on and a session ID is known. Seed one manually with `node.ws.setSessionId(id)`.
+
+## Manual API
+
+| API | Purpose |
+|-----|---------|
+| `yukumo.restorePlayers()` | Re-run the restore pass; returns the number restored |
+| `player.saveState()` | Write the current snapshot immediately |
+| `player.restoreFromState(json)` | Apply a `PlayerJson` snapshot to a fresh player |
+| `player.adoptLiveState(playerData)` | Sync internal state to a live server-side player without sending a play request |
+| `player.enableStatePersistence()` | Turn on snapshotting for a single player |
+
+## Lifecycle rules
+
+- `yukumo.destroy()` flushes final snapshots (freshest position) before teardown and **keeps** them on disk (reason `DisconnectAllNodes`).
+- Normal destroys (skip-to-empty, manual, channel deleted) **delete** the snapshot and remove the guild from the restore index (`yukumo:players:index`).
+- **NodeLink nodes never resume** — NodeLink doesn't support it. YuKumo skips the resume handshake there and re-sends player state on reconnect instead; restart recovery still works via snapshots (replay path).
