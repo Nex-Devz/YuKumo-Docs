@@ -1,0 +1,73 @@
+---
+title: v1.7.0 — Restart-Proof
+description: Session resuming across restarts, silent player adoption, source-aware autoplay, full NodeLink support, and DX utilities.
+icon: RefreshCw
+---
+
+**Released 2026-08-06** · `npm install yukumo@1.7.0`
+
+The headline: your bot can now restart **without the music stopping**.
+
+## Added
+
+### Session Resuming Across Restarts
+
+`ManagerOptions.resuming` (`{ enabled, timeout = 60, persistPlayers = true }`). Session IDs are persisted per node (`yukumo:session:<nodeId>`) and seeded pre-connect via `WebSocketClient.setSessionId()`, so a restarted bot reclaims its Lavalink sessions — **audio keeps playing through the restart**. `NodeConfig.resuming` enables it per node (the `Session-Id` header no longer requires `resumeKey`).
+
+→ Full guide: [Session Resuming](/docs/session-resuming)
+
+### Player Restore ("keep playing")
+
+With `resuming.persistPlayers`, every player persists a full snapshot (`yukumo:player:<guildId>` — queue, position, volume, filters, repeat/autoplay/24-7 flags; refreshed on `trackStart`, every `playerUpdate` (~5s), queue mutations, and playback setters). `init()` runs `restorePlayers()`:
+
+- On a **resumed session**, the still-live server-side player is **adopted silently** (`adoptLiveState()` — no play request, zero audio gap).
+- Otherwise the bot rejoins voice and replays at the saved position.
+
+New `playerRestored (guildId, resumedLive)` event; new `Player.saveState()` / `restoreFromState()` / `enableStatePersistence()`. `YuKumo.destroy()` flushes final snapshots before teardown.
+
+### Source-Aware Autoplay
+
+Default autoplay is no longer YouTube-only. `Player.resolveAutoplayTrack()` picks a recommendation strategy per `sourceName`:
+
+| Source | Strategy |
+|--------|----------|
+| YouTube / YT Music | `RD` radio mix |
+| Spotify | `sprec:seed_tracks=` |
+| Deezer | `dzrec:` |
+| Yandex Music | `ymrec:` |
+| SoundCloud | `/recommended` |
+| Fallback | `scsearch` / `amsearch` / `ytsearch` on artist + title |
+
+Recently played tracks (history + current) are excluded to prevent loops. `playerDefaults.autoplay` enables autoplay on every created player; a custom `autoplayFetcher` still overrides.
+
+→ Full guide: [Autoplay & Utilities](/docs/autoplay-and-utilities)
+
+### NodeLink Support
+
+Auto-detected from `/v4/info` (`isNodelink`) or forced via `NodeConfig.isNodeLink`; `node.isNodeLink` / `player.isOnNodeLink` getters. Session resuming is automatically skipped on NodeLink (unsupported there — reconnects re-send player state instead). `getLyrics()` transparently routes to NodeLink's built-in `/v4/loadlyrics`. NodeLink SponsorBlock event names map to the existing `segmentsLoaded` / `segmentSkipped` events.
+
+Extras:
+
+- **REST** — `loadLyrics(encoded, lang?)`, `loadChapters(encoded)`, `getMeaning(encoded)`, `getConnectionMetrics()`, mixer CRUD (`addMixLayer` / `getMixLayers` / `updateMixLayer` / `removeMixLayer`).
+- **Player** — `getNodeLinkLyrics(lang?)`, `getChapters()`, `getTrackMeaning()`, `setGaplessNext(track | null)` (gapless preload), `setFading({ trackStart | trackEnd | trackStop | seek | ducking })` (curves: linear, exponential, logarithmic, s-curve), mixer helpers.
+- **Voice receive** — `NodeLinkVoiceReceiver` (`node.createVoiceReceiver(guildId)` / `player.createVoiceReceiver()`) emits `startSpeaking` / `endSpeaking` with base64 opus/pcm captured audio.
+- **Events** — `mixStarted` / `mixEnded`; `updatePlayer()` accepts `nextTrack`, `fading`, `track.audioTrackId`.
+- `LavalinkInfo` gains `isNodelink` / `node` fields.
+
+→ Full guide: [NodeLink Support](/docs/nodelink)
+
+### DX Utilities
+
+- `player.waitUntilPlaying(timeoutMs = 15000)` — resolves when the node reports the track actually started; immediate when already playing; rejects on destroy/timeout.
+- `player.isVoiceReady` getter — voice credentials held + node connected.
+- `queue.lock(fn)` — promise-chain mutex serializing multi-step queue edits; `queue.isLocked` getter.
+- `queue.unique(keyFn?)` — removes duplicates (default key: `encoded` → `info.identifier`), keeps first occurrence, never removes the playing track.
+- `players.find(criteria)` / `players.findOne(criteria)` / `kumo.findPlayers(criteria)` — filter by `node`, `status`, `voiceChannelId`, `textChannelId`, `autoplay`, `stayInVc`, `playing`, or a custom predicate.
+- **Node maintenance mode** — `node.setMaintenance(true)`: no new players assigned, existing players keep playing, node drains naturally; `node.maintenance` getter and `node.drain(timeoutMs?, pollMs?)`.
+- `player.cache` — per-player `TTLCache` with auto-expiring entries (`cache.set("vote", true, 60_000)`); lazy expiry, cleared on destroy; `TTLCache` exported.
+- `kumo.broadcast(fn, criteria?)` — applies an operation to all (or matched) players via `Promise.allSettled`; one failing player never blocks the rest.
+
+## Changed
+
+- `pause()`, `resume()`, `setVolume()`, `setLoop()`, `setAutoplay()` schedule a state snapshot when state persistence is on.
+- Queue persistence and state persistence share the `Queue.onChanged` hook (both fire on mutations).

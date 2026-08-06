@@ -14,18 +14,25 @@ full: true
 
 YuKumo is a modern, lightweight, production-ready Lavalink v4 client engineered for TypeScript and JavaScript. Built with minimal dependencies (only `ws`), full strict type safety, and a framework-agnostic architecture.
 
+<Callout title="New in v1.7.0 — Restart-Proof">
+  Session resuming keeps audio playing **through bot restarts**, players are silently re-adopted with zero gap, autoplay is now source-aware (Spotify, Deezer, SoundCloud, Yandex — not just YouTube), and NodeLink is fully supported. See the [full changelog](/docs/changelog/v1-7-0).
+</Callout>
+
 ## Features
 
 <Cards>
+  <Card title="Restart-Proof Sessions" icon="RefreshCw" description="Session resuming + player snapshots: redeploy your bot and the music keeps playing — live players are adopted silently with zero audio gap." />
   <Card title="High Performance Engine" icon="Zap" description="Player creation in ~1.8ms. Queue operations at ~9.3M ops/sec. Event dispatch at ~663k ops/sec." />
   <Card title="100% Strict Type Safety" icon="ShieldCheck" description="Full TypeScript support with strict typings across nodes, players, search, filters, and events." />
-  <Card title="Minimal Dependencies" icon="Package" description="Only one runtime dependency (ws). Lightweight footprint with native Bun WebSocket support." />
-  <Card title="Framework Agnostic" icon="Boxes" description="Native support for discord.js, Seyfert, Eris, Oceanic.js, and Discordeno." />
-  <Card title="Built-in Queue Manager" icon="ListMusic" description="Queue repeat modes, Fisher-Yates shuffle, playback history navigation, and index range manipulation." />
-  <Card title="Modular Plugin Lifecycle" icon="Puzzle" description="Hook into search queries, voice connections, track playback, player destruction, and node selection." />
+  <Card title="Source-Aware Autoplay" icon="Shuffle" description="Per-source recommendation strategies — YouTube RD mixes, Spotify sprec, Deezer, Yandex, SoundCloud — with played-track dedupe." />
+  <Card title="NodeLink Ready" icon="Plug" description="Auto-detected NodeLink nodes: gapless preload, fading curves, mixer layers, voice receive, chapters, and built-in lyrics." />
   <Card title="Queue Persistence" icon="Database" description="Queues auto-save to Memory/Redis storage on every change and restore after a restart — playlists survive redeploys." />
   <Card title="SponsorBlock & Live Lyrics" icon="Captions" description="Server-side sponsor skipping and timestamped live lyrics lines via the SponsorBlock and LavaLyrics node plugins." />
   <Card title="Self-Healing Connections" icon="Activity" description="WS heartbeat detects half-open dead nodes, error-rate guards destroy runaway players, and every destroy carries a reason." />
+  <Card title="Framework Agnostic" icon="Boxes" description="Native support for discord.js, Seyfert, Eris, Oceanic.js, and Discordeno — plus a raw gateway adapter." />
+  <Card title="Built-in Queue Manager" icon="ListMusic" description="Repeat modes, Fisher-Yates shuffle, history navigation, sortBy, removeTrack, unique, lock, and range manipulation." />
+  <Card title="Modular Plugin Lifecycle" icon="Puzzle" description="Hook into search queries, voice connections, track playback, player destruction, and node selection." />
+  <Card title="Minimal Dependencies" icon="Package" description="Only one runtime dependency (ws). Lightweight footprint with native Bun WebSocket support." />
 </Cards>
 
 ## Benchmarks & Performance Metrics
@@ -125,6 +132,9 @@ const yukumo = new YuKumo({
 
 <Cards>
   <Card title="Getting Started" href="/docs/getting-started" icon="Rocket" description="Build a music bot with YuKumo in a few minutes." />
+  <Card title="Session Resuming" href="/docs/session-resuming" icon="RefreshCw" description="Keep audio playing through restarts and redeploys." />
   <Card title="API Reference" href="/docs/api-reference" icon="BookOpen" description="Comprehensive reference for every public export." />
+  <Card title="Changelog" href="/docs/changelog" icon="History" description="Every release with everything added, changed, and fixed." />
+  <Card title="Migration Guide" href="/docs/migration" icon="ArrowRight" description="Coming from Erela.js, Shoukaku, Poru, or Magmastream." />
   <Card title="GitHub" href="https://github.com/Nex-Devz/YuKumo" icon="GitFork" description="Source code, issues, and examples." />
 </Cards>

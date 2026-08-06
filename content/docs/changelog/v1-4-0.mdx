@@ -1,0 +1,23 @@
+---
+title: v1.4.0 — Smart Playback
+description: Smart autoplay engine, extended queue operations, DSP presets, 24/7 mode, synced lyrics, and UI helpers.
+icon: Wand
+---
+
+**Released 2026-08-01** · `npm install yukumo@1.4.0`
+
+## Added
+
+- **Smart Autoplay Engine** — `setAutoplay(enabled, fetcher?)`, `isAutoplayEnabled()`, and the `autoplayTrackAdded` event on recommendation enqueues.
+- **Extended Queue Operations** — `Queue.swap(indexA, indexB)`, `Queue.skipTo(index)`, `Queue.removeRange(start, count)`, `Queue.clearExceptCurrent()`.
+- **Audio DSP Presets** — `setSlowedReverb()`, `set3DAudio()`, `setPitchShift()`, `setVoiceIsolation()`, and a global custom preset registry (`FilterChain.registerPreset()` / `applyPreset()`).
+- **Smart Voice Channel Behaviors** — 24/7 mode (`stayInVc`) and the empty-VC monitor (`setVcMemberCount()`) with configurable auto-pause and auto-disconnect timeouts.
+- **Synced Lyrics & SponsorBlock** — `getSyncedLyrics()` via LRCLIB with the `parseLrc()` timestamp parser; `SponsorBlockClient` segment auto-skip.
+- **DX & UI Helpers** — `getProgressBar()`, `formatDuration()`, `createQueueEmbedData()`, and `MiddlewareRegistry` interceptor hooks (`useBeforeTrackStart`).
+
+## Fixed
+
+- Voice connection handshake race: added the `waitForVoiceReady()` promise.
+- Session resumption on WS reconnect: re-sends OP4 voice credentials and player states.
+- Auto-reconnect on Discord voice close codes 4009 / 4015 (`WebSocketClosedEvent`).
+- Voice endpoint handling: active endpoint preserved when `null` endpoints arrive during Discord region failovers.
