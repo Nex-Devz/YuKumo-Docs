@@ -179,6 +179,13 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `maxErrorsPerTime` | `{ threshold, maxAmount } \| null` | Sliding-window error-rate protection |
 | `minAutoPlayMs` | `number` | Min play time before error-triggered autoplay runs |
 | `queueEmptyDestroyMs` | `number` | Destroy this many ms after queue end (`0` disables) |
+| `isPlaying` | `boolean` | `status === "playing" && !paused` (Poru/Riffy convention) |
+| `isPaused` | `boolean` | Whether paused (Poru/Riffy convention) |
+| `isConnected` | `boolean` | Whether voice-connected (Poru/Riffy convention) |
+| `isDestroyed` | `boolean` | Whether destroyed (Poru/Riffy convention) |
+| `isAutoplay` | `boolean` | Whether autoplay is enabled (Poru/Riffy convention) |
+| `trackRepeat` | `boolean` | Single-track repeat getter/setter (Magmastream/erela.js) |
+| `queueRepeat` | `boolean` | Whole-queue repeat getter/setter (Magmastream/erela.js) |
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -206,6 +213,18 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `enableQueuePersistence()` | `void` | Auto-save the queue to the storage adapter on every change |
 | `restoreQueue()` | `Promise<boolean>` | Restore a persisted queue |
 | `toJSON()` | `PlayerJson` | Full serializable player snapshot (queue, filters, voice, playback) |
+| `get(start?, end?)` | `TTrack[]` | Queue slice from `start` (current track included) to `end` — Poru-compatible |
+| `setTrackRepeat(enabled?)` / `setQueueRepeat(enabled?)` | `this` | Magmastream/erela.js repeat aliases — never clobber the other repeat mode |
+| `setEqualizer(bands?)` | `Promise<void>` | Replace the equalizer filter and sync to the node |
+| `setKaraoke(settings?)` | `Promise<void>` | Replace the karaoke filter and sync to the node |
+| `setTimescale(settings?)` | `Promise<void>` | Replace the timescale (speed/pitch) filter and sync to the node |
+| `setTremolo(settings?)` | `Promise<void>` | Replace the tremolo filter and sync to the node |
+| `setVibrato(settings?)` | `Promise<void>` | Replace the vibrato filter and sync to the node |
+| `setRotation(settings?)` | `Promise<void>` | Replace the rotation (8D) filter and sync to the node |
+| `setDistortion(settings?)` | `Promise<void>` | Replace the distortion filter and sync to the node |
+| `setChannelMix(settings?)` | `Promise<void>` | Replace the channel mix filter and sync to the node |
+| `setLowPass(settings?)` | `Promise<void>` | Replace the low-pass filter and sync to the node |
+| `setVolumeFilter(volume?)` | `Promise<void>` | Replace the volume filter and sync to the node (default `1.0`) |
 
 ### PlayerManager
 
@@ -308,6 +327,40 @@ interface TrackInfo {
 }
 ```
 
+### Track
+
+The `Track` class wraps a `TrackData` with convenient getters and client-side encoding:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `encoded` | `string` | Lavalink v4 base64 track |
+| `info` | `TrackInfo` | Track metadata |
+| `pluginInfo` | `Record<string, unknown>` | Plugin data |
+| `requester` | `unknown` | Auto-populated from `userData.requester` |
+| `metadata` | `Record<string, unknown>` | Same as `userData` |
+| `durationFormatted` | `string` | Human-readable duration (uses `formatDuration`) |
+
+| Static Method | Returns | Description |
+|---------------|---------|-------------|
+| `encode(info)` | `string` | Encode `TrackInfo` into Lavalink v4 base64 — byte-for-byte compatible with `@lavalink/encoding`, no server needed |
+| `decode(encoded)` | `TrackInfo` | Decode a Lavalink v4 base64 track into raw info fields |
+| `build(info, requester?)` | `Track` | Build a playable track entirely on the client — encodes locally so it plays without resolving against a node (Wavelink `PartialTrack.create()` equivalent) |
+| `from(data, requester?)` | `Track` | Wrap an existing `TrackData` |
+
+```ts
+import { Track } from "yukumo";
+
+// Build + play a track with no server round-trip
+const track = Track.build({ title: "My Local Song", author: "Me" });
+await player.play(track);
+
+// Encode / decode
+const encoded = Track.encode({ title: "Song", author: "Artist", length: 214_000, ... });
+const info = Track.decode(encoded);
+```
+
+The lower-level `encodeTrackInfo()` / `decodeTrackInfo()` functions are also exported.
+
 ### SearchResult
 
 ```ts
@@ -317,6 +370,22 @@ interface SearchResult {
   playlistInfo?: { name: string; selectedTrack: number };
   exception?: { message: string; severity: "common" | "suspicious" | "fault" };
 }
+```
+
+### SearchOptions
+
+```ts
+interface SearchOptions {
+  query: string;
+  source?: string;
+  nodeName?: string;
+  requester?: unknown; // stamped onto every returned track's userData (cache hits included)
+}
+```
+
+```ts
+const result = await kumo.search({ query: "lofi", requester: { id: "user-1" } });
+result.tracks[0]?.userData?.requester; // { id: "user-1" }
 ```
 
 ## Filters
@@ -331,6 +400,12 @@ interface SearchResult {
 | `toPayload()` | Serialize to API payload |
 | `has(filter)` | Check if exists |
 | `getAll()` | Get all filters |
+
+`player.setFilters()` accepts either a `FilterChain` or a raw Lavalink `FiltersObject`, and applies it to the node in real time:
+
+```ts
+await player.setFilters({ equalizer: [{ band: 0, gain: 0.5 }] });
+```
 
 ### Available Filters
 
@@ -527,6 +602,32 @@ class SearchCache {
 import { SearchCache } from "yukumo";
 
 const cache = new SearchCache({ maxSize: 500, ttl: 1800000 }); // 30 mins
+```
+
+## Utilities
+
+### parseDuration
+
+Parses a duration string into milliseconds. Accepts `"m:ss"`, `"h:mm:ss"`, plain second counts, or a numeric value. Returns `0` on unparseable input.
+
+```ts
+import { parseDuration } from "yukumo";
+
+parseDuration("3:32");    // 212000
+parseDuration("1:02:03"); // 3723000
+parseDuration("90");      // 90000
+parseDuration(90);        // 90000
+```
+
+### encodeTrackInfo / decodeTrackInfo
+
+Low-level Lavalink v4 track encoding helpers (used by `Track.encode()` / `Track.decode()`):
+
+```ts
+import { encodeTrackInfo, decodeTrackInfo } from "yukumo";
+
+const encoded = encodeTrackInfo(trackInfo); // Lavalink v4 base64 string
+const info = decodeTrackInfo(encoded);      // TrackInfo
 ```
 
 ## Framework Adapters

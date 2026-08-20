@@ -1,0 +1,95 @@
+---
+title: v1.8.0 — Cross-Wrapper DX
+description: Offline track encoding, requester support, per-filter setters, repeat aliases, state getters, and queue slicing.
+icon: Package
+---
+
+**Released 2026-08-19** · `npm install yukumo@1.8.0`
+
+The headline: build, encode, and decode tracks **without ever touching a node** — plus a round of developer experience that brings YuKumo's API in line with Wavelink, Poru, Magmastream, Shoukaku, and lavalink-client.
+
+## Added
+
+### Offline Track Encoding
+
+`Track.encode()`, `Track.decode()`, and `Track.build()` are byte-for-byte compatible with Lavalink v4's native encoding (`@lavalink/encoding`) — build, encode, and decode tracks entirely on the client with no server round-trip.
+
+```ts
+import { Track } from "yukumo";
+
+// Build a playable track locally (Wavelink's PartialTrack.create() equivalent)
+const track = Track.build({ title: "My Local Song", author: "Me" });
+
+// Encode any track info into Lavalink v4 base64
+const encoded = Track.encode({ title: "Song", author: "Artist", length: 214_000, ... });
+
+// Decode a server-encoded track into raw info fields
+const info = Track.decode(encoded);
+```
+
+The lower-level `encodeTrackInfo()` / `decodeTrackInfo()` functions are exported too.
+
+### Requester Support
+
+Pass a `requester` to `search()` and it's stamped onto every returned track's `userData` — cache hits included, without polluting the shared cache:
+
+```ts
+const result = await kumo.search({ query: "lofi", requester: { id: "user-1" } });
+result.tracks[0]?.userData?.requester; // { id: "user-1" }
+```
+
+`Track.requester` now auto-populates from `userData.requester`, and `Track.build(info, requester)` / `UnresolvedTrack` accept a requester as well.
+
+### Player State Getters
+
+Poru/Riffy-style boolean getters that read directly off the player:
+
+| Getter | Returns |
+|--------|---------|
+| `isPlaying` | `status === "playing" && !paused` |
+| `isPaused` | paused |
+| `isConnected` | connected |
+| `isDestroyed` | destroyed |
+| `isAutoplay` | autoplay enabled |
+
+### Repeat-Mode Aliases
+
+Magmastream/erela.js-style helpers that never clobber the other repeat mode:
+
+```ts
+player.setTrackRepeat(true);       // single-track repeat
+player.setQueueRepeat(true);       // whole-queue repeat
+player.trackRepeat;                // boolean getter
+player.queueRepeat = false;        // boolean setter
+```
+
+### Per-Filter Setters
+
+Shoukaku/lavalink-client-style one-liners on the player that replace the filter and sync it to the node:
+
+`setEqualizer()`, `setKaraoke()`, `setTimescale()`, `setTremolo()`, `setVibrato()`, `setRotation()`, `setDistortion()`, `setChannelMix()`, `setLowPass()`, `setVolumeFilter()`.
+
+`player.setFilters()` now also accepts a raw Lavalink `FiltersObject` in addition to a `FilterChain`:
+
+```ts
+await player.setFilters({ equalizer: [{ band: 0, gain: 0.5 }] });
+```
+
+### Queue Slicing
+
+Poru-compatible `player.get(start, end)` returns a slice of the queue — the currently playing track included:
+
+```ts
+const nextFive = player.get(0, 5);
+```
+
+### Duration Utils
+
+`parseDuration("3:32")` → `212000` ms. Accepts `"m:ss"`, `"h:mm:ss"`, plain second counts (`"90"`), or a number. `formatDuration()` is consolidated into `UIHelpers` and reused by `Track.durationFormatted`.
+
+```ts
+import { parseDuration } from "yukumo";
+
+parseDuration("3:32");  // 212000
+parseDuration("1:02:03"); // 3723000
+```

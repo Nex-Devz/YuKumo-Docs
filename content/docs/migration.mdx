@@ -98,6 +98,8 @@ player.filters.add(new EqualizerFilter().setBand(0, 0.5));
 
 Filters apply on next `play()`.
 
+Since **v1.8.0** the old v3-style setters are back as first-class methods (`player.setEqualizer()`, `setTimescale()`, `setKaraoke()`, …) — they replace the filter and sync to the node immediately:
+
 ### 6. Events
 
 **v3:** `player.on("end", (data) => {})`
@@ -123,7 +125,7 @@ Event names use Lavalink v4 camelCase convention.
 | `player.pause()` | `YuKumo.pause()` or `player.pause()` |
 | `player.resume()` | `YuKumo.resume()` or `player.resume()` |
 | `player.setVolume()` | `YuKumo.setVolume()` or `player.setVolume()` |
-| `player.setEqualizer()` | `player.filters.add(new EqualizerFilter(...))` |
+| `player.setEqualizer()` | `player.filters.add(new EqualizerFilter(...))` *or* `player.setEqualizer(...)` (v1.8+) |
 | `player.setTimescale()` | `player.filters.add(new TimescaleFilter(...))` |
 | `player.queue.add()` | `player.queue.enqueue()` |
 | `player.queue.next()` | `player.queue.next()` |

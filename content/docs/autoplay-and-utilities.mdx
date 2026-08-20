@@ -1,6 +1,6 @@
 ---
 title: Autoplay & Utilities
-description: Source-aware autoplay for every music source, plus the 1.7 DX utilities — waitUntilPlaying, queue lock, findPlayers, maintenance mode, TTL cache, and broadcast.
+description: Source-aware autoplay for every music source, plus the 1.7 DX utilities and the 1.8 cross-wrapper DX — offline track building, requester, state getters, repeat aliases, and queue slicing.
 ---
 
 ## Source-Aware Autoplay
@@ -123,3 +123,61 @@ await yukumo.broadcast((p) => p.pause(), { status: "playing" });
 ```
 
 Runs via `Promise.allSettled` — one failing player never blocks the rest; results return in player order.
+
+## Offline Track Building
+
+Build, encode, and decode tracks entirely on the client — no server round-trip (byte-for-byte compatible with Lavalink v4's native encoding):
+
+```ts
+import { Track } from "yukumo";
+
+const track = Track.build({ title: "My Local Song", author: "Me" });
+await player.play(track); // plays without resolving against a node
+
+const encoded = Track.encode(trackInfo); // → base64 string
+const info = Track.decode(encoded);      // → TrackInfo
+```
+
+## Requester Support
+
+Pass a `requester` to `search()` and it's stamped onto every returned track's `userData` — cache hits included, without polluting the shared cache:
+
+```ts
+const result = await yukumo.search({ query: "lofi", requester: { id: "user-1" } });
+result.tracks[0]?.userData?.requester; // { id: "user-1" }
+
+// Track.requester picks it up automatically
+new Track(result.tracks[0]).requester; // { id: "user-1" }
+```
+
+## State Getters
+
+Poru/Riffy-style booleans: `isPlaying`, `isPaused`, `isConnected`, `isDestroyed`, `isAutoplay`.
+
+## Repeat Aliases
+
+Magmastream/erela.js-style helpers that never clobber the other repeat mode:
+
+```ts
+player.setTrackRepeat(true); // single-track repeat
+player.setQueueRepeat(true); // whole-queue repeat
+player.trackRepeat;          // boolean getter
+player.queueRepeat = false;  // boolean setter
+```
+
+## Queue Slicing
+
+```ts
+const nextFive = player.get(0, 5); // Poru-compatible slice, current track included
+```
+
+## Duration Utils
+
+```ts
+import { parseDuration } from "yukumo";
+
+parseDuration("3:32");    // 212000
+parseDuration("1:02:03"); // 3723000
+```
+
+`formatDuration()` lives in `UIHelpers` and powers `Track.durationFormatted`.
