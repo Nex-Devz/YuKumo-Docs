@@ -89,6 +89,8 @@ class YuKumo {
 | `port` | `number` | **required** | Lavalink port |
 | `password` | `string` | **required** | Lavalink password |
 | `name` | `string` | auto | Node identifier |
+| `type` | `"lavalink" \| "nodelink" \| "auto"` | `"auto"` | Server family; `auto` detects it from `/v4/info` on connect |
+| `isNodeLink` | `boolean` | — | **Deprecated** — prefer `type: "nodelink"`. Still honored |
 | `secure` | `boolean` | `false` | Use `https`/`wss` |
 | `resumeTimeout` | `number` | `60` | Resume timeout (seconds) |
 | `resumeKey` | `string` | auto | Resume identifier |
@@ -111,8 +113,24 @@ class YuKumo {
 | `ws` | `WebSocketClient` | WebSocket client |
 | `rest` | `RestClient` | REST client |
 | `state` | `NodeState` | `disconnected \| connecting \| connected \| destroyed` |
+| `type` | `"lavalink" \| "nodelink"` | Resolved server family |
+| `version` | `string \| null` | Server version (from `/v4/info`) |
+| `capabilities` | `NodeCapabilities \| null` | Resolved features, filters, sources (null before ready) |
+| `sourceManagers` | `readonly string[]` | Enabled source names |
+| `isNodeLink` | `boolean` | Whether the node is NodeLink |
 | `penalties` | `Penalties` | Current penalty scores |
 | `playerCount` | `number` | Active players on this node |
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `supports(feature)` | `boolean` | Whether the node supports a `NodeFeature` |
+| `supportsFilter(name)` | `boolean` | Whether a specific audio filter is available |
+| `assertSupports(feature)` | `void` | Throws `YukumoUnsupportedFeatureError` when unsupported |
+| `createVoiceReceiver(guildId)` | `NodeLinkVoiceReceiver` | NodeLink voice receive (throws on Lavalink) |
+
+`NodeFeature` = `"lyrics" \| "chapters" \| "meaning" \| "voiceReceive" \| "extraFilters" \| "stream" \| "mixer" \| "sponsorblock" \| "lyricsSubscribe" \| "groups" \| "youtubeConfig" \| "routeplanner" \| "sessionResume"`.
+
+Config helpers: `createNodeLinkNode(config)` and `createLavalinkNode(config)` build a `NodeConfig` with the right `type` and resuming enabled.
 
 ### NodeManager
 
@@ -123,7 +141,7 @@ class YuKumo {
 | `get(id)` | `Node \| undefined` | Get node by name |
 | `getAll()` | `Node[]` | Get all registered nodes |
 | `getConnected()` | `Node[]` | Get only connected nodes |
-| `pick(guildId)` | `Node \| null` | Pick best node via selector |
+| `pick(guildId, opts?)` | `Node \| null` | Pick best node via selector; pass `{ feature }` to require a capability |
 | `connectAll()` | `Promise<void>` | Connect all nodes |
 | `destroyAll()` | `Promise<void>` | Destroy all nodes |
 | `setSelector(selector)` | `void` | Replace selection strategy |
@@ -225,6 +243,9 @@ client.nodes.setSelector(new CustomSelector((nodes, guildId) => {
 | `setChannelMix(settings?)` | `Promise<void>` | Replace the channel mix filter and sync to the node |
 | `setLowPass(settings?)` | `Promise<void>` | Replace the low-pass filter and sync to the node |
 | `setVolumeFilter(volume?)` | `Promise<void>` | Replace the volume filter and sync to the node (default `1.0`) |
+| `setPluginFilter(name, settings)` | `Promise<void>` | Set/remove a server-side plugin filter (LavaDSPX etc.) via `pluginFilters`; pass `false`/`null` to remove |
+| `skipTo(index)` | `Promise<TTrack \| null>` | Jump to a queue index and start it on the node (skipped tracks go to history) |
+| `setEcho / setChorus / setReverb / setCompressor / setPhaser / setHighPass / setFlanger / setSpatial / setPhonograph / setTesseract` | `Promise<void>` | NodeLink extra DSP filters (capability-gated) |
 
 ### PlayerManager
 
@@ -400,6 +421,8 @@ result.tracks[0]?.userData?.requester; // { id: "user-1" }
 | `toPayload()` | Serialize to API payload |
 | `has(filter)` | Check if exists |
 | `getAll()` | Get all filters |
+| `setPluginFilter(name, settings)` | Set/remove a server-side plugin filter (`pluginFilters`); `false`/`null` removes |
+| `getPluginFilter(name)` / `hasPluginFilter(name)` | Read / check a plugin filter |
 
 `player.setFilters()` accepts either a `FilterChain` or a raw Lavalink `FiltersObject`, and applies it to the node in real time:
 
@@ -421,6 +444,8 @@ await player.setFilters({ equalizer: [{ band: 0, gain: 0.5 }] });
 | `DistortionFilter` | `setSinOffset()`, `setSinScale()`, `setCosOffset()`, `setCosScale()`, `setTanOffset()`, `setTanScale()`, `setOffset()`, `setScale()` |
 | `ChannelMixFilter` | `setLeftToLeft()`, `setLeftToRight()`, `setRightToLeft()`, `setRightToRight()` |
 | `LowPassFilter` | `setSmoothing()` |
+
+**NodeLink-only extra filters** (via `player.setEcho()` etc., capability-gated): `EchoFilter`, `ChorusFilter`, `CompressorFilter`, `PhaserFilter`, `HighPassFilter`, `FlangerFilter`, `ReverbFilter`, `SpatialFilter`, `PhonographFilter`, `TesseractFilter`. Server-side filter plugins (LavaDSPX etc.) go through `FilterChain.setPluginFilter(name, settings)` / `player.setPluginFilter()`.
 
 ```ts
 import { FilterChain, EqualizerFilter, TimescaleFilter } from "yukumo";
@@ -728,6 +753,7 @@ interface Plugin {
 | `PluginError` | Plugin lifecycle errors |
 | `VoiceError` | Voice state errors |
 | `LoadError` | Track loading errors |
+| `YukumoUnsupportedFeatureError` | A feature was requested on a node that doesn't support it (`code: "UNSUPPORTED_FEATURE"`, with `feature`, `nodeId`, `nodeType`) |
 
 ```ts
 import { RestError, PlayerNotConnectedError } from "yukumo";
