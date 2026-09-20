@@ -3,24 +3,76 @@ title: NodeLink Support
 description: First-class support for NodeLink (PerformanC's Lavalink alternative) — auto-detection, built-in lyrics/chapters, gapless playback, fading, audio mixer, and voice receive.
 ---
 
-## Detection
+## Detection & node type
 
-NodeLink is auto-detected from `/v4/info` (`isNodelink: true`) on the first ready, or forced per node:
+A node's server family is detected from `/v4/info` (`isNodelink: true`) on the first ready, or set explicitly with `type` (default `"auto"`). The legacy `isNodeLink: true` flag still works.
 
 ```ts
-nodes: [
-  { host: "localhost", port: 2333, password: "x", name: "nl", isNodeLink: true },
-]
+import { YuKumo, createLavalinkNode, createNodeLinkNode } from "yukumo";
 
-node.isNodeLink;      // true
-player.isOnNodeLink;  // true
+const kumo = new YuKumo({
+  nodes: [
+    createLavalinkNode({ host: "ll", port: 2333, password: "x" }),
+    createNodeLinkNode({ host: "nl", port: 2333, password: "x" }),
+    // or inline: { host, port, password, type: "auto" | "lavalink" | "nodelink" }
+  ],
+  send: (guildId, payload) => client.guilds.cache.get(guildId)?.shard.send(payload),
+});
+
+// After a node is ready:
+node.type;            // "lavalink" | "nodelink"
+node.version;         // server version string
+node.sourceManagers;  // ["youtube", "soundcloud", "bandcamp", ...]
+node.isNodeLink;      // true on NodeLink
+player.isOnNodeLink;  // true when the player is on a NodeLink node
 ```
 
 Behavioral differences YuKumo handles for you:
 
-- **No session resuming** on NodeLink — the resume handshake is skipped and player state is re-sent on reconnect ([restart recovery](/docs/session-resuming) still works via snapshots).
+- **Session resuming works on both** — NodeLink v3+ supports it, so YuKumo enables the same resume handshake there as on Lavalink ([restart recovery](/docs/session-resuming)).
 - NodeLink's `SponsorBlockSegmentsLoadedEvent` / `SponsorBlockSegmentSkippedEvent` map to the existing `segmentsLoaded` / `segmentSkipped` events.
 - `yukumo.getLyrics()` / `player.getLyrics()` transparently route to NodeLink's built-in `/v4/loadlyrics` — no plugin needed.
+
+## Capabilities & mixed pools
+
+Lavalink and NodeLink nodes can share one pool. Each node exposes what it can do, so NodeLink-only features never accidentally run on a plain Lavalink node.
+
+```ts
+node.supports("lyrics");        // true on NodeLink
+node.supports("voiceReceive");  // true on NodeLink
+node.supports("extraFilters");  // true when the node has extra DSP filters enabled
+node.supportsFilter("echo");    // check a single filter
+node.capabilities;              // { type, version, features, filters, sourceManagers }
+```
+
+Feature requests are routed to a capable node automatically, and you can pick one yourself:
+
+```ts
+// Routed to a lyrics-capable node in a mixed pool
+const lyrics = await kumo.getLyrics(encodedTrack);
+
+// Pick a node for a specific capability
+const node = kumo.nodes.pick(guildId, { feature: "voiceReceive" });
+```
+
+If no connected node supports a requested feature, YuKumo throws a typed `YukumoUnsupportedFeatureError` (`code: "UNSUPPORTED_FEATURE"`, with `feature`, `nodeId`, `nodeType`) instead of failing silently. `node.assertSupports(feature)` runs the same check on demand.
+
+### Cross-family failover
+
+When a player moves between a NodeLink node and a Lavalink node, filters the target can't run (the NodeLink extras) are dropped automatically with a `debug` log — audio keeps playing rather than erroring.
+
+## Extra DSP filters
+
+NodeLink adds ten filters beyond the Lavalink standard set, applied through the same API:
+
+```ts
+await player.setEcho({ delay: 200, feedback: 0.4 });
+await player.setReverb({ roomSize: 0.8, damping: 0.5, width: 1 });
+await player.setChorus({ depth: 0.5, rate: 1.5 });
+// also: setCompressor, setPhaser, setHighPass, setFlanger, setSpatial, setPhonograph, setTesseract
+```
+
+They're gated by capability — calling one on a Lavalink node (or a NodeLink node with that filter disabled) is dropped rather than silently sent.
 
 ## Built-in lyrics, chapters, meaning
 
